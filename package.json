@@ -1,6 +1,6 @@
 {
   "name": "grok-browser",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Open-source Chromium browser with Grok AI baked in — inspired by Perplexity Comet",
   "main": "out/main/index.js",
   "author": "Grok Browser Contributors",

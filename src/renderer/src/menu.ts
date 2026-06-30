@@ -1,4 +1,11 @@
-import { APP_MENU, EXTENSIONS_MENU, PROFILE_MENU } from './menu-data'
+import {
+  EXTENSIONS_MENU,
+  MENU_CATEGORIES,
+  MENU_QUICK_ITEMS,
+  MENU_STANDALONE_ITEMS,
+  PROFILE_MENU,
+  type MenuItem
+} from './menu-data'
 import {
   closeModal,
   openModal,
@@ -64,35 +71,97 @@ async function openDropdown(id: string): Promise<void> {
   menuOpening = false
 }
 
-function renderMenuList(container: HTMLElement, items: { id: string; label: string; shortcut?: string; action: string }[], onAction: (action: string) => void): void {
-  container.innerHTML = items.map((item) => `
-    <button class="menu-item" data-action="${item.action}">
-      <span>${item.label}</span>
+function menuItemHtml(item: MenuItem): string {
+  return `
+    <button class="menu-item" data-action="${item.action}" type="button">
+      <span class="menu-item-label">${item.label}</span>
       ${item.shortcut ? `<span class="menu-shortcut">${item.shortcut}</span>` : ''}
     </button>
-  `).join('')
-  container.querySelectorAll('.menu-item').forEach((btn) => {
+  `
+}
+
+function bindMenuActions(root: HTMLElement): void {
+  root.querySelectorAll('.menu-item[data-action]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
+      e.preventDefault()
       e.stopPropagation()
       const action = (btn as HTMLElement).dataset.action!
-      void closeAllDropdowns().then(() => onAction(action))
+      void closeAllDropdowns().then(() => handleMenuAction(action))
     })
   })
+}
+
+function renderMenuList(container: HTMLElement, items: MenuItem[]): void {
+  container.innerHTML = items.map((item) => menuItemHtml(item)).join('')
+  bindMenuActions(container)
 }
 
 function renderAppMenu(): void {
   const container = $('#app-menu-body')
   if (!container) return
-  container.innerHTML = APP_MENU.map((section) => `
-    <div class="menu-section">
-      ${section.title ? `<div class="menu-section-title">${section.title}</div>` : ''}
-      <div class="menu-section-items" data-section="${section.id}"></div>
+
+  const quickHtml = MENU_QUICK_ITEMS.map((item) => menuItemHtml(item)).join('')
+  const standaloneHtml = MENU_STANDALONE_ITEMS.map((item) => menuItemHtml(item)).join('')
+  const categoriesHtml = MENU_CATEGORIES.map((cat) => `
+    <div class="menu-category" data-category="${cat.id}">
+      <div class="menu-category-row" tabindex="0">
+        <span class="menu-category-label">${cat.label}</span>
+        <span class="menu-chevron">›</span>
+      </div>
+      <div class="menu-submenu" role="menu">
+        ${cat.items.map((item) => menuItemHtml(item)).join('')}
+      </div>
     </div>
   `).join('')
 
-  APP_MENU.forEach((section) => {
-    const el = container.querySelector(`[data-section="${section.id}"]`) as HTMLElement
-    if (el) renderMenuList(el, section.items, handleMenuAction)
+  container.innerHTML = `
+    <div class="menu-quick">${quickHtml}</div>
+    <div class="menu-divider"></div>
+    <div class="menu-standalone">${standaloneHtml}</div>
+    <div class="menu-divider"></div>
+    <div class="menu-categories">${categoriesHtml}</div>
+  `
+
+  bindMenuActions(container)
+
+  container.querySelectorAll('.menu-category').forEach((cat) => {
+    const row = cat.querySelector('.menu-category-row') as HTMLElement
+    const submenu = cat.querySelector('.menu-submenu') as HTMLElement
+    if (!row || !submenu) return
+
+    const show = () => {
+      container.querySelectorAll('.menu-category.active').forEach((c) => {
+        c.classList.remove('active')
+        const sub = c.querySelector('.menu-submenu') as HTMLElement
+        if (sub) {
+          sub.style.position = ''
+          sub.style.left = ''
+          sub.style.top = ''
+        }
+      })
+      cat.classList.add('active')
+      submenu.style.display = 'block'
+      const rowRect = row.getBoundingClientRect()
+      const subW = submenu.offsetWidth || 260
+      const subH = submenu.offsetHeight
+      let top = rowRect.top
+      const maxTop = window.innerHeight - subH - 8
+      if (top > maxTop) top = Math.max(8, maxTop)
+      submenu.style.position = 'fixed'
+      submenu.style.left = `${rowRect.left - subW - 8}px`
+      submenu.style.top = `${top}px`
+      submenu.style.right = 'auto'
+    }
+
+    row.addEventListener('mouseenter', show)
+    cat.addEventListener('mouseenter', show)
+    cat.addEventListener('mouseleave', () => {
+      cat.classList.remove('active')
+      submenu.style.display = ''
+      submenu.style.position = ''
+      submenu.style.left = ''
+      submenu.style.top = ''
+    })
   })
 }
 
@@ -158,7 +227,10 @@ async function handleMenuAction(action: string): Promise<void> {
         else if (ch && typeof ch === 'object' && 'error' in ch) cb.showToast(String((ch as { error: string }).error))
       })
       break
-    case 'find': cb.showFindBar(); break
+    case 'find-in-page':
+    case 'find':
+      cb.showFindBar()
+      break
     case 'cut': api.page.clipboard('cut'); break
     case 'copy': api.page.clipboard('copy'); break
     case 'paste': api.page.clipboard('paste'); break
@@ -383,8 +455,8 @@ export function setupMenu(cbs: MenuCallbacks): void {
 
   const extMenu = $('#extensions-menu-body')
   const profMenu = $('#profile-menu-body')
-  if (extMenu) renderMenuList(extMenu, EXTENSIONS_MENU, handleMenuAction)
-  if (profMenu) renderMenuList(profMenu, PROFILE_MENU, handleMenuAction)
+  if (extMenu) renderMenuList(extMenu, EXTENSIONS_MENU)
+  if (profMenu) renderMenuList(profMenu, PROFILE_MENU)
 
   bindDropdownButton('#btn-menu', '#app-menu-dropdown')
   bindDropdownButton('#btn-extensions', '#extensions-dropdown')
@@ -428,8 +500,67 @@ export function setupMenu(cbs: MenuCallbacks): void {
     ;($('#pw-user') as HTMLInputElement).value = ''
     ;($('#pw-pass') as HTMLInputElement).value = ''
     renderPasswordManager()
-    void renderBookmarksBar()
     cbs.showToast('Password saved', 'success')
+  })
+
+  $('#btn-pw-add-payment')?.addEventListener('click', async () => {
+    const label = ($('#pw-pay-label') as HTMLInputElement).value.trim()
+    const cardholder = ($('#pw-pay-holder') as HTMLInputElement).value.trim()
+    const last4 = ($('#pw-pay-last4') as HTMLInputElement).value.trim()
+    const expiry = ($('#pw-pay-expiry') as HTMLInputElement).value.trim()
+    if (!label || !last4) return
+    await window.grokBrowser.passwords.addPayment({ label, cardholder, last4, expiry })
+    ;($('#pw-pay-label') as HTMLInputElement).value = ''
+    ;($('#pw-pay-holder') as HTMLInputElement).value = ''
+    ;($('#pw-pay-last4') as HTMLInputElement).value = ''
+    ;($('#pw-pay-expiry') as HTMLInputElement).value = ''
+    renderPasswordManager()
+    cbs.showToast('Payment method saved', 'success')
+  })
+
+  $('#btn-pw-add-contact')?.addEventListener('click', async () => {
+    const name = ($('#pw-contact-name') as HTMLInputElement).value.trim()
+    const email = ($('#pw-contact-email') as HTMLInputElement).value.trim()
+    const phone = ($('#pw-contact-phone') as HTMLInputElement).value.trim()
+    const address = ($('#pw-contact-address') as HTMLInputElement).value.trim()
+    if (!name) return
+    await window.grokBrowser.passwords.addContact({ name, email, phone, address })
+    ;($('#pw-contact-name') as HTMLInputElement).value = ''
+    ;($('#pw-contact-email') as HTMLInputElement).value = ''
+    ;($('#pw-contact-phone') as HTMLInputElement).value = ''
+    ;($('#pw-contact-address') as HTMLInputElement).value = ''
+    renderPasswordManager()
+    cbs.showToast('Contact saved', 'success')
+  })
+
+  $('#btn-pw-add-identity')?.addEventListener('click', async () => {
+    const type = ($('#pw-id-type') as HTMLInputElement).value.trim()
+    const number = ($('#pw-id-number') as HTMLInputElement).value.trim()
+    const issuer = ($('#pw-id-issuer') as HTMLInputElement).value.trim()
+    const expiry = ($('#pw-id-expiry') as HTMLInputElement).value.trim()
+    if (!type || !number) return
+    await window.grokBrowser.passwords.addIdentity({ type, number, issuer, expiry })
+    ;($('#pw-id-type') as HTMLInputElement).value = ''
+    ;($('#pw-id-number') as HTMLInputElement).value = ''
+    ;($('#pw-id-issuer') as HTMLInputElement).value = ''
+    ;($('#pw-id-expiry') as HTMLInputElement).value = ''
+    renderPasswordManager()
+    cbs.showToast('Identity document saved', 'success')
+  })
+
+  $('#btn-pw-add-travel')?.addEventListener('click', async () => {
+    const type = ($('#pw-travel-type') as HTMLInputElement).value.trim()
+    const number = ($('#pw-travel-number') as HTMLInputElement).value.trim()
+    const holder = ($('#pw-travel-holder') as HTMLInputElement).value.trim()
+    const expiry = ($('#pw-travel-expiry') as HTMLInputElement).value.trim()
+    if (!type || !number) return
+    await window.grokBrowser.passwords.addTravel({ type, number, holder, expiry })
+    ;($('#pw-travel-type') as HTMLInputElement).value = ''
+    ;($('#pw-travel-number') as HTMLInputElement).value = ''
+    ;($('#pw-travel-holder') as HTMLInputElement).value = ''
+    ;($('#pw-travel-expiry') as HTMLInputElement).value = ''
+    renderPasswordManager()
+    cbs.showToast('Travel document saved', 'success')
   })
 }
 

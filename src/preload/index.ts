@@ -187,6 +187,14 @@ const api = {
     get: () => ipcRenderer.invoke('passwords:get'),
     add: (entry: { site: string; username: string; password: string; notes: string }) =>
       ipcRenderer.invoke('passwords:add', entry),
+    addPayment: (entry: { label: string; cardholder: string; last4: string; expiry: string }) =>
+      ipcRenderer.invoke('passwords:add-payment', entry),
+    addContact: (entry: { name: string; email: string; phone: string; address: string }) =>
+      ipcRenderer.invoke('passwords:add-contact', entry),
+    addIdentity: (entry: { type: string; number: string; issuer: string; expiry: string }) =>
+      ipcRenderer.invoke('passwords:add-identity', entry),
+    addTravel: (entry: { type: string; number: string; holder: string; expiry: string }) =>
+      ipcRenderer.invoke('passwords:add-travel', entry),
     remove: (id: string) => ipcRenderer.invoke('passwords:remove', id),
     removePayment: (id: string) => ipcRenderer.invoke('passwords:remove-payment', id),
     removeContact: (id: string) => ipcRenderer.invoke('passwords:remove-contact', id),
