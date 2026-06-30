@@ -1,6 +1,6 @@
 {
   "name": "grok-browser",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Open-source Chromium browser with Grok AI baked in — inspired by Perplexity Comet",
   "main": "out/main/index.js",
   "author": "Grok Browser Contributors",
@@ -32,7 +32,7 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "electron-store": "^10.0.1",
+    "electron-store": "^8.2.0",
     "marked": "^15.0.7"
   },
   "devDependencies": {
@@ -62,11 +62,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "resources/icon.ico"
