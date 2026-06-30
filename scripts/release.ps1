@@ -1,9 +1,10 @@
 # Bump version, tag, and push to trigger automated GitHub Release
-# Usage: .\scripts\release.ps1 0.3.0
+# Usage: .\scripts\release.ps1 0.4.2
 
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Version
+    [string]$Version,
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,17 +20,33 @@ if ($Pkg.version -ne $Version) {
     (Get-Content $PkgPath -Raw) -replace '"version":\s*"[^"]+"', "`"version`": `"$Version`"" | Set-Content $PkgPath -NoNewline
     git add package.json
     git commit -m "Bump version to $Version"
+    $Pkg.version = $Version
 }
 
-git tag $Tag
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Tag $Tag already exists. Delete with: git tag -d $Tag" -ForegroundColor Yellow
-    exit 1
+$HeadVersion = (Get-Content $PkgPath -Raw | ConvertFrom-Json).version
+if ($HeadVersion -ne $Version) {
+    Write-Error "package.json version ($HeadVersion) must match release version ($Version) before tagging."
 }
+
+$ExistingTag = git tag -l $Tag
+if ($ExistingTag) {
+    if (-not $Force) {
+        Write-Host "Tag $Tag already exists. Use -Force to move it to HEAD, or: git tag -d $Tag" -ForegroundColor Yellow
+        exit 1
+    }
+    git tag -d $Tag
+}
+
+git tag -a $Tag -m "Release $Tag"
+Write-Host "Tagged $Tag at $(git rev-parse --short HEAD)" -ForegroundColor Cyan
 
 Write-Host "Pushing main and tag $Tag..." -ForegroundColor Cyan
 git push origin main
-git push origin $Tag
+if ($Force) {
+    git push origin $Tag --force
+} else {
+    git push origin $Tag
+}
 
 Write-Host ""
 Write-Host "Release triggered! Track progress at:" -ForegroundColor Green
