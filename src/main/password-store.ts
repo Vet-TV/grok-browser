@@ -129,5 +129,13 @@ export const passwordStore = {
 
   removeTravel(id: string): void {
     store.set('travel', store.get('travel').filter((t) => t.id !== id))
+  },
+
+  clearAll(): void {
+    store.set('passwords', [])
+    store.set('payments', [])
+    store.set('contacts', [])
+    store.set('identities', [])
+    store.set('travel', [])
   }
 }

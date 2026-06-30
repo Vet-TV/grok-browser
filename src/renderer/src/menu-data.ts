@@ -5,32 +5,38 @@ export interface MenuItem {
   action: string
 }
 
-export interface MenuSection {
+export interface MenuCategory {
   id: string
-  title: string
+  label: string
   items: MenuItem[]
 }
 
-export const APP_MENU: MenuSection[] = [
-  {
-    id: 'new',
-    title: '',
-    items: [
-      { id: 'new-tab', label: 'New tab', shortcut: 'Ctrl+T', action: 'new-tab' },
-      { id: 'new-window', label: 'New window', shortcut: 'Ctrl+N', action: 'new-window' },
-      { id: 'new-incognito', label: 'New Incognito window', shortcut: 'Ctrl+Shift+N', action: 'new-incognito' }
-    ]
-  },
+/** Always visible at top — never hidden by scroll */
+export const MENU_QUICK_ITEMS: MenuItem[] = [
+  { id: 'new-tab', label: 'New tab', shortcut: 'Ctrl+T', action: 'new-tab' },
+  { id: 'new-window', label: 'New window', shortcut: 'Ctrl+N', action: 'new-window' },
+  { id: 'new-incognito', label: 'New Incognito window', shortcut: 'Ctrl+Shift+N', action: 'new-incognito' }
+]
+
+/** Standalone actions below quick items */
+export const MENU_STANDALONE_ITEMS: MenuItem[] = [
+  { id: 'find-page', label: 'Find in page', shortcut: 'Ctrl+F', action: 'find-in-page' }
+]
+
+/** Hover to reveal submenu */
+export const MENU_CATEGORIES: MenuCategory[] = [
   {
     id: 'account',
-    title: 'Account',
+    label: 'Account',
     items: [
-      { id: 'x-signin', label: 'X profile sign-in', action: 'x-signin' }
+      { id: 'x-signin', label: 'X profile sign-in', action: 'x-signin' },
+      { id: 'x-signout', label: 'Sign out of X', action: 'x-signout' },
+      { id: 'settings', label: 'Settings', action: 'settings' }
     ]
   },
   {
     id: 'passwords',
-    title: 'Passwords and autofill',
+    label: 'Passwords and autofill',
     items: [
       { id: 'pw-manager', label: 'Grok Password Manager', action: 'password-manager' },
       { id: 'pw-payments', label: 'Payments', action: 'password-payments' },
@@ -41,7 +47,7 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'history',
-    title: 'History & bookmarks',
+    label: 'History and bookmarks',
     items: [
       { id: 'history', label: 'History', shortcut: 'Ctrl+H', action: 'history' },
       { id: 'bookmarks', label: 'Bookmarks and lists', shortcut: 'Ctrl+Shift+B', action: 'bookmarks' },
@@ -53,14 +59,14 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'privacy',
-    title: 'Privacy',
+    label: 'Privacy',
     items: [
       { id: 'clear-data', label: 'Delete browsing data', shortcut: 'Ctrl+Shift+Del', action: 'clear-data' }
     ]
   },
   {
     id: 'zoom',
-    title: 'Zoom',
+    label: 'Zoom',
     items: [
       { id: 'zoom-in', label: 'Zoom in', shortcut: 'Ctrl+=', action: 'zoom-in' },
       { id: 'zoom-out', label: 'Zoom out', shortcut: 'Ctrl+-', action: 'zoom-out' },
@@ -68,8 +74,8 @@ export const APP_MENU: MenuSection[] = [
     ]
   },
   {
-    id: 'grok-search',
-    title: 'Grok',
+    id: 'grok',
+    label: 'Grok',
     items: [
       { id: 'grok-tab-search', label: 'Search tabs with Grok', action: 'grok-tab-search' },
       { id: 'translate', label: 'Translate page with Grok', action: 'translate' }
@@ -77,9 +83,8 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'find-edit',
-    title: 'Find and edit',
+    label: 'Find and edit',
     items: [
-      { id: 'find', label: 'Find', shortcut: 'Ctrl+F', action: 'find' },
       { id: 'cut', label: 'Cut', shortcut: 'Ctrl+X', action: 'cut' },
       { id: 'copy', label: 'Copy', shortcut: 'Ctrl+C', action: 'copy' },
       { id: 'paste', label: 'Paste', shortcut: 'Ctrl+V', action: 'paste' }
@@ -87,7 +92,7 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'cast-save',
-    title: 'Cast, save and share',
+    label: 'Cast, save and share',
     items: [
       { id: 'cast', label: 'Cast…', action: 'cast' },
       { id: 'save-page', label: 'Save page as…', shortcut: 'Ctrl+S', action: 'save-page' },
@@ -100,7 +105,7 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'more-tools',
-    title: 'More tools',
+    label: 'More tools',
     items: [
       { id: 'tab-search', label: 'Tab search', shortcut: 'Ctrl+Shift+A', action: 'tab-search' },
       { id: 'name-window', label: 'Name window', action: 'name-window' },
@@ -113,7 +118,7 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'extensions',
-    title: 'Extensions',
+    label: 'Extensions',
     items: [
       { id: 'manage-ext', label: 'Manage extensions', action: 'extensions' },
       { id: 'chrome-store', label: 'Visit Chrome Web Store', action: 'chrome-store' }
@@ -121,7 +126,7 @@ export const APP_MENU: MenuSection[] = [
   },
   {
     id: 'help',
-    title: 'Help',
+    label: 'Help',
     items: [
       { id: 'about', label: 'About Grok Browser', action: 'about' },
       { id: 'whats-new', label: "What's New", action: 'whats-new' },

@@ -307,10 +307,38 @@
             </div>
             <div class="pw-list"></div>
           </div>
-          <div class="pw-panel" data-panel="payments"><div class="pw-list"></div></div>
-          <div class="pw-panel" data-panel="contacts"><div class="pw-list"></div></div>
-          <div class="pw-panel" data-panel="identities"><div class="pw-list"></div></div>
-          <div class="pw-panel" data-panel="travel"><div class="pw-list"></div></div>
+          <div class="pw-panel" data-panel="payments">
+            <div class="pw-add-form">
+              <input id="pw-pay-label" placeholder="Card label" /><input id="pw-pay-holder" placeholder="Cardholder name" />
+              <input id="pw-pay-last4" placeholder="Last 4 digits" maxlength="4" /><input id="pw-pay-expiry" placeholder="MM/YY" />
+              <button class="btn-primary btn-sm" id="btn-pw-add-payment">Add</button>
+            </div>
+            <div class="pw-list"></div>
+          </div>
+          <div class="pw-panel" data-panel="contacts">
+            <div class="pw-add-form">
+              <input id="pw-contact-name" placeholder="Full name" /><input id="pw-contact-email" placeholder="Email" />
+              <input id="pw-contact-phone" placeholder="Phone" /><input id="pw-contact-address" placeholder="Address" />
+              <button class="btn-primary btn-sm" id="btn-pw-add-contact">Add</button>
+            </div>
+            <div class="pw-list"></div>
+          </div>
+          <div class="pw-panel" data-panel="identities">
+            <div class="pw-add-form">
+              <input id="pw-id-type" placeholder="Document type (e.g. Driver license)" /><input id="pw-id-number" placeholder="Document number" />
+              <input id="pw-id-issuer" placeholder="Issuing authority" /><input id="pw-id-expiry" placeholder="Expiry date" />
+              <button class="btn-primary btn-sm" id="btn-pw-add-identity">Add</button>
+            </div>
+            <div class="pw-list"></div>
+          </div>
+          <div class="pw-panel" data-panel="travel">
+            <div class="pw-add-form">
+              <input id="pw-travel-type" placeholder="Document (e.g. Passport)" /><input id="pw-travel-number" placeholder="Document number" />
+              <input id="pw-travel-holder" placeholder="Full name on document" /><input id="pw-travel-expiry" placeholder="Expiry date" />
+              <button class="btn-primary btn-sm" id="btn-pw-add-travel">Add</button>
+            </div>
+            <div class="pw-list"></div>
+          </div>
         </div>
       </div>
     </div>

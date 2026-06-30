@@ -1,6 +1,7 @@
 import { app, clipboard, dialog, session } from 'electron'
 import { writeFileSync } from 'fs'
 import { dataStore } from './data-store'
+import { passwordStore } from './password-store'
 import { settingsStore } from './store'
 import type { TabManager } from './tab-manager'
 
@@ -70,8 +71,8 @@ export async function clearBrowsingData(options: ClearDataOptions): Promise<void
     dataStore.clearHistory()
     dataStore.clearSession()
   }
-  if (options.downloads) {
-    // downloads list only — files remain on disk
+  if (options.passwords) {
+    passwordStore.clearAll()
   }
 
   if (removals.length) {
