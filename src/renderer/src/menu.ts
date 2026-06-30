@@ -66,6 +66,7 @@ function closeDropdownVisuals(): void {
 }
 
 async function closeAllDropdowns(): Promise<void> {
+  if (!activeDropdown) return
   closeDropdownVisuals()
   await popOverlay()
 }
