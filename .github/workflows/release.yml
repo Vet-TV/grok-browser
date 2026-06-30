@@ -37,7 +37,7 @@ jobs:
           }
 
       - name: Build Windows installers
-        run: npm run dist:win
+        run: npm run build && npx electron-builder --win --publish never
 
       - name: Collect release assets
         id: assets
