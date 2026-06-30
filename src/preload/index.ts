@@ -44,6 +44,15 @@ export interface DownloadEntry {
   startedAt: number
 }
 
+export interface XAccountInfo {
+  linked: boolean
+  username: string
+  email: string
+  linkedAt: number | null
+  hasApiKey: boolean
+  onboardingComplete: boolean
+}
+
 const api = {
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
@@ -140,6 +149,16 @@ const api = {
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url)
+  },
+  chrome: {
+    reportLayout: (layout: { chromeHeight: number; sidebarWidth: number }) =>
+      ipcRenderer.invoke('chrome:report-layout', layout)
+  },
+  auth: {
+    status: () => ipcRenderer.invoke('auth:status') as Promise<XAccountInfo>,
+    signIn: () => ipcRenderer.invoke('auth:sign-in') as Promise<XAccountInfo>,
+    signOut: () => ipcRenderer.invoke('auth:sign-out') as Promise<XAccountInfo>,
+    completeOnboarding: () => ipcRenderer.invoke('auth:complete-onboarding') as Promise<XAccountInfo>
   }
 }
 

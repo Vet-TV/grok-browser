@@ -1,5 +1,11 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
+import {
+  getXAccountStatus,
+  markOnboardingComplete,
+  openXSignIn,
+  signOutXAccount
+} from './auth-service'
 import { dataStore } from './data-store'
 import { openDownload, setupDownloads } from './downloads'
 import { grokService } from './grok-service'
@@ -8,6 +14,7 @@ import { settingsStore } from './store'
 
 let mainWindow: BrowserWindow | null = null
 let tabManager: TabManager | null = null
+let tabsInitialized = false
 
 const isDev = !app.isPackaged
 
@@ -53,14 +60,14 @@ function createWindow(): void {
   }
 
   mainWindow.webContents.once('did-finish-load', () => {
-    initTabs()
     const sidebar = tabManager?.getSidebarState()
     if (sidebar) mainWindow?.webContents.send('sidebar:state', sidebar)
   })
 }
 
 function initTabs(): void {
-  if (!tabManager) return
+  if (!tabManager || tabsInitialized) return
+  tabsInitialized = true
 
   if (settingsStore.get('restoreSession')) {
     const saved = dataStore.getSession()
@@ -84,6 +91,27 @@ function setupIpc(): void {
   })
   ipcMain.handle('window:close', () => mainWindow?.close())
   ipcMain.handle('window:is-maximized', () => mainWindow?.isMaximized() ?? false)
+
+  ipcMain.handle('chrome:report-layout', (_, layout: { chromeHeight: number; sidebarWidth: number }) => {
+    if (!tabManager) return false
+    tabManager.setChromeLayout(layout)
+    if (!tabsInitialized) {
+      tabManager.markTabsReady()
+      initTabs()
+    }
+    return true
+  })
+
+  ipcMain.handle('auth:status', () => getXAccountStatus())
+  ipcMain.handle('auth:sign-in', () => openXSignIn(mainWindow))
+  ipcMain.handle('auth:sign-out', () => {
+    signOutXAccount()
+    return getXAccountStatus()
+  })
+  ipcMain.handle('auth:complete-onboarding', () => {
+    markOnboardingComplete()
+    return getXAccountStatus()
+  })
 
   ipcMain.handle('tabs:create', (_, url?: string) => tabManager?.createTab(url))
   ipcMain.handle('tabs:switch', (_, id: string) => tabManager?.switchTab(id))
@@ -130,7 +158,10 @@ function setupIpc(): void {
     homePage: settingsStore.get('homePage'),
     restoreSession: settingsStore.get('restoreSession'),
     sidebarWidth: settingsStore.get('sidebarWidth'),
-    sidebarOpen: settingsStore.get('sidebarOpen')
+    sidebarOpen: settingsStore.get('sidebarOpen'),
+    xAccountLinked: settingsStore.get('xAccountLinked'),
+    xUsername: settingsStore.get('xUsername'),
+    onboardingComplete: settingsStore.get('onboardingComplete')
   }))
 
   ipcMain.handle('settings:set', (_, settings: Record<string, string | boolean>) => {

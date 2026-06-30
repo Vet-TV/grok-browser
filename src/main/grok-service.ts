@@ -21,6 +21,21 @@ export class GrokService {
     return key
   }
 
+  private getAccountContext(): string {
+    if (!settingsStore.get('xAccountLinked')) return ''
+    const username = settingsStore.get('xUsername')
+    const email = settingsStore.get('xEmail')
+    const parts = ['The user has linked their X account to Grok Browser.']
+    if (username) parts.push(`X username: ${username}`)
+    if (email) parts.push(`Email: ${email}`)
+    return parts.join(' ')
+  }
+
+  private enrichSystemPrompt(base: string): string {
+    const account = this.getAccountContext()
+    return account ? `${base}\n\n${account}` : base
+  }
+
   async *streamChat(
     messages: ChatMessage[],
     options?: { searchMode?: 'auto' | 'on' | 'off'; includeCitations?: boolean }
@@ -113,9 +128,9 @@ export class GrokService {
     return [
       {
         role: 'system',
-        content: `You are Grok, an AI assistant built into Grok Browser. You help users browse the web intelligently.
+        content: this.enrichSystemPrompt(`You are Grok, an AI assistant built into Grok Browser. You help users browse the web intelligently.
 You have access to the current page context. Be concise, accurate, and helpful.
-When citing information from the page, reference specific details. Use markdown formatting.`
+When citing information from the page, reference specific details. Use markdown formatting.`)
       },
       {
         role: 'user',
@@ -135,8 +150,8 @@ User question: ${userQuery}`
     return [
       {
         role: 'system',
-        content: `You are Grok, an AI research assistant in Grok Browser. Research the topic thoroughly using live web search.
-Provide a concise, well-structured answer with key findings. Include the most relevant URLs as markdown links at the end under "## Top Sources".`
+        content: this.enrichSystemPrompt(`You are Grok, an AI research assistant in Grok Browser. Research the topic thoroughly using live web search.
+Provide a concise, well-structured answer with key findings. Include the most relevant URLs as markdown links at the end under "## Top Sources".`)
       },
       {
         role: 'user',
@@ -150,7 +165,7 @@ Provide a concise, well-structured answer with key findings. Include the most re
     return [
       {
         role: 'system',
-        content: 'You are Grok. Summarize web pages clearly with key points, structure, and takeaways. Use markdown.'
+        content: this.enrichSystemPrompt('You are Grok. Summarize web pages clearly with key points, structure, and takeaways. Use markdown.')
       },
       {
         role: 'user',

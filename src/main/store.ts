@@ -8,6 +8,11 @@ export interface BrowserSettings {
   searchMode: 'auto' | 'on' | 'off'
   homePage: string
   restoreSession: boolean
+  xAccountLinked: boolean
+  xUsername: string
+  xEmail: string
+  xLinkedAt: number | null
+  onboardingComplete: boolean
 }
 
 const defaults: BrowserSettings = {
@@ -17,7 +22,12 @@ const defaults: BrowserSettings = {
   sidebarOpen: true,
   searchMode: 'auto',
   homePage: 'https://x.ai',
-  restoreSession: true
+  restoreSession: true,
+  xAccountLinked: false,
+  xUsername: '',
+  xEmail: '',
+  xLinkedAt: null,
+  onboardingComplete: false
 }
 
 export const settingsStore = new Store<BrowserSettings>({

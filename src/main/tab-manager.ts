@@ -1,4 +1,4 @@
-import { app, BrowserView, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, session, WebContentsView } from 'electron'
 import { join } from 'path'
 import { dataStore } from './data-store'
 import { settingsStore } from './store'
@@ -14,9 +14,14 @@ export interface TabInfo {
   isBookmarked: boolean
 }
 
+export interface ChromeLayout {
+  chromeHeight: number
+  sidebarWidth: number
+}
+
 interface Tab {
   id: string
-  view: BrowserView
+  view: WebContentsView
   title: string
   url: string
   favicon?: string
@@ -24,8 +29,7 @@ interface Tab {
   zoomLevel: number
 }
 
-const CHROME_HEIGHT = 88
-const SIDEBAR_MIN = 0
+const DEFAULT_CHROME_HEIGHT = 112
 const NEW_TAB_URL = 'grok-browser://newtab'
 
 function getNewTabPath(): string {
@@ -36,8 +40,10 @@ export class TabManager {
   private window: BrowserWindow
   private tabs = new Map<string, Tab>()
   private activeTabId: string | null = null
+  private chromeHeight = DEFAULT_CHROME_HEIGHT
   private sidebarWidth = settingsStore.get('sidebarWidth')
   private sidebarOpen = settingsStore.get('sidebarOpen')
+  private tabsReady = false
 
   constructor(window: BrowserWindow) {
     this.window = window
@@ -45,9 +51,32 @@ export class TabManager {
     this.sidebarOpen = settingsStore.get('sidebarOpen')
   }
 
+  setChromeLayout(layout: ChromeLayout): void {
+    this.chromeHeight = Math.max(80, Math.round(layout.chromeHeight))
+    if (layout.sidebarWidth >= 0) {
+      this.sidebarWidth = layout.sidebarWidth
+    }
+    this.layoutViews()
+  }
+
+  markTabsReady(): void {
+    this.tabsReady = true
+    if (this.activeTabId) {
+      const tab = this.tabs.get(this.activeTabId)
+      if (tab) {
+        try {
+          this.window.contentView.addChildView(tab.view)
+        } catch {
+          // view may already be attached
+        }
+      }
+    }
+    this.layoutViews()
+  }
+
   createTab(url?: string): string {
     const id = crypto.randomUUID()
-    const view = new BrowserView({
+    const view = new WebContentsView({
       webPreferences: {
         sandbox: true,
         contextIsolation: true,
@@ -70,6 +99,8 @@ export class TabManager {
 
     if (!this.activeTabId) {
       this.switchTab(id)
+    } else if (this.tabsReady) {
+      this.layoutViews()
     }
 
     this.emitTabsUpdate()
@@ -78,15 +109,19 @@ export class TabManager {
 
   restoreSession(urls: string[], activeIndex: number): void {
     for (const tab of this.tabs.values()) {
-      this.window.removeBrowserView(tab.view)
+      try {
+        this.window.contentView.removeChildView(tab.view)
+      } catch {
+        // view may not be attached
+      }
       tab.view.webContents.close()
     }
     this.tabs.clear()
     this.activeTabId = null
 
     urls.forEach((url, i) => {
-      const id = this.createTab(url)
-      if (i === activeIndex) this.switchTab(id)
+      const tabId = this.createTab(url)
+      if (i === activeIndex) this.switchTab(tabId)
     })
 
     if (!this.activeTabId && urls.length > 0) {
@@ -105,7 +140,7 @@ export class TabManager {
     return { tabs, activeIndex: Math.max(0, activeIndex) }
   }
 
-  private loadUrl(view: BrowserView, url: string): void {
+  private loadUrl(view: WebContentsView, url: string): void {
     if (url === NEW_TAB_URL || !url) {
       view.webContents.loadFile(getNewTabPath()).catch(() => {})
     } else {
@@ -113,7 +148,7 @@ export class TabManager {
     }
   }
 
-  private setupViewEvents(id: string, view: BrowserView): void {
+  private setupViewEvents(id: string, view: WebContentsView): void {
     const wc = view.webContents
 
     wc.on('did-start-loading', () => {
@@ -180,13 +215,21 @@ export class TabManager {
 
     if (this.activeTabId) {
       const prev = this.tabs.get(this.activeTabId)
-      if (prev) this.window.removeBrowserView(prev.view)
+      if (prev) {
+        try {
+          this.window.contentView.removeChildView(prev.view)
+        } catch {
+          // ignore
+        }
+      }
     }
 
     this.activeTabId = id
     const tab = this.tabs.get(id)!
-    this.window.addBrowserView(tab.view)
-    this.layoutViews()
+    if (this.tabsReady) {
+      this.window.contentView.addChildView(tab.view)
+      this.layoutViews()
+    }
     this.emitActiveTabUpdate()
     this.emitTabsUpdate()
   }
@@ -195,7 +238,11 @@ export class TabManager {
     const tab = this.tabs.get(id)
     if (!tab) return
 
-    this.window.removeBrowserView(tab.view)
+    try {
+      this.window.contentView.removeChildView(tab.view)
+    } catch {
+      // ignore
+    }
     tab.view.webContents.close()
     this.tabs.delete(id)
 
@@ -222,7 +269,7 @@ export class TabManager {
     return newId
   }
 
-  getActiveView(): BrowserView | null {
+  getActiveView(): WebContentsView | null {
     if (!this.activeTabId) return null
     return this.tabs.get(this.activeTabId)?.view ?? null
   }
@@ -312,14 +359,23 @@ export class TabManager {
   }
 
   layoutViews(): void {
-    const [width, height] = this.window.getContentSize()
-    const sidebar = this.sidebarOpen ? this.sidebarWidth : SIDEBAR_MIN
-    const viewWidth = Math.max(0, width - sidebar)
-    const viewHeight = Math.max(0, height - CHROME_HEIGHT)
+    if (!this.tabsReady) return
 
-    for (const tab of this.tabs.values()) {
-      tab.view.setBounds({ x: 0, y: CHROME_HEIGHT, width: viewWidth, height: viewHeight })
-      tab.view.setAutoResize({ width: true, height: true })
+    const [width, height] = this.window.getContentSize()
+    const sidebarOffset = this.sidebarOpen ? this.sidebarWidth : 0
+    const viewWidth = Math.max(100, width - sidebarOffset)
+    const viewHeight = Math.max(100, height - this.chromeHeight)
+
+    const bounds = {
+      x: 0,
+      y: this.chromeHeight,
+      width: viewWidth,
+      height: viewHeight
+    }
+
+    const active = this.activeTabId ? this.tabs.get(this.activeTabId) : null
+    if (active) {
+      active.view.setBounds(bounds)
     }
   }
 

@@ -1,5 +1,5 @@
 import { marked } from 'marked'
-import type { GrokStreamChunk, TabInfo } from '../../preload/index'
+import type { GrokStreamChunk, TabInfo, XAccountInfo } from '../../preload/index'
 import {
   closeModal,
   openModal,
@@ -34,6 +34,8 @@ const grokSidebar = $('#grok-sidebar')
 const settingsModal = $('#settings-modal')
 const findBar = $('#find-bar')
 const findInput = $('#find-input') as HTMLInputElement
+const onboardingModal = $('#onboarding-modal')
+const chromeShell = $('#chrome-shell')
 
 marked.setOptions({ breaks: true })
 
@@ -43,10 +45,12 @@ function init(): void {
   setupSidebar()
   setupChat()
   setupSettings()
+  setupAuth()
   setupPanels()
   setupFindBar()
   setupKeyboardShortcuts()
   setupDownloads()
+  setupChromeLayout()
   loadSettings()
 
   window.grokBrowser.tabs.onUpdated(renderTabs)
@@ -55,6 +59,28 @@ function init(): void {
     sidebarOpen = state.open
     sidebarWidth = state.width
     updateSidebarUI()
+    reportChromeLayout()
+  })
+
+  checkOnboarding()
+}
+
+function setupChromeLayout(): void {
+  reportChromeLayout()
+  window.addEventListener('resize', reportChromeLayout)
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver(() => reportChromeLayout())
+    observer.observe(chromeShell)
+  }
+}
+
+function reportChromeLayout(): void {
+  const height = chromeShell.getBoundingClientRect().height
+  const chromeHeight = Math.round(height) || 112
+  document.documentElement.style.setProperty('--chrome-height', `${chromeHeight}px`)
+  window.grokBrowser.chrome.reportLayout({
+    chromeHeight,
+    sidebarWidth: sidebarOpen ? sidebarWidth : 0
   })
 }
 
@@ -222,6 +248,7 @@ function setupSidebar(): void {
     sidebarWidth = Math.max(280, Math.min(600, startWidth + delta))
     document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`)
     window.grokBrowser.sidebar.set(sidebarOpen, sidebarWidth)
+    reportChromeLayout()
   })
 
   document.addEventListener('mouseup', () => {
@@ -237,6 +264,7 @@ function updateSidebarUI(): void {
   $('#btn-grok').classList.toggle('active', sidebarOpen)
   document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`)
   document.documentElement.style.setProperty('--sidebar-offset', sidebarOpen ? `${sidebarWidth}px` : '0px')
+  reportChromeLayout()
 }
 
 function setupChat(): void {
@@ -452,6 +480,7 @@ function setupSettings(): void {
   $('#btn-settings').onclick = () => {
     settingsModal.hidden = false
     loadSettings()
+    refreshAccountUI()
   }
   $('#btn-settings-close').onclick = () => { settingsModal.hidden = true }
   $('#btn-save-settings').onclick = saveSettings
@@ -462,6 +491,151 @@ function setupSettings(): void {
   settingsModal.onclick = (e) => {
     if (e.target === settingsModal) settingsModal.hidden = true
   }
+}
+
+function setupAuth(): void {
+  $('#btn-onboarding-sign-in').onclick = () => handleSignIn('onboarding')
+  $('#btn-settings-sign-in').onclick = () => handleSignIn('settings')
+  $('#btn-onboarding-console').onclick = () => window.grokBrowser.shell.openExternal('https://console.x.ai')
+  $('#btn-onboarding-complete').onclick = completeOnboarding
+
+  $('#onboarding-api-key').addEventListener('input', updateOnboardingState)
+}
+
+async function checkOnboarding(): Promise<void> {
+  const status = await window.grokBrowser.auth.status()
+  if (!status.onboardingComplete || !status.linked || !status.hasApiKey) {
+    onboardingModal.hidden = false
+    updateOnboardingUI(status)
+  } else {
+    onboardingModal.hidden = true
+  }
+}
+
+function updateOnboardingUI(status: XAccountInfo): void {
+  const step1 = $('#onboarding-step-1')
+  const step2 = $('#onboarding-step-2')
+  const signinStatus = $('#onboarding-signin-status')
+  const completeBtn = $('#btn-onboarding-complete') as HTMLButtonElement
+  const signInBtn = $('#btn-onboarding-sign-in') as HTMLButtonElement
+
+  if (status.linked) {
+    step1.classList.add('complete')
+    signinStatus.textContent = status.username
+      ? `Signed in as ${status.username}`
+      : 'X account linked'
+    signInBtn.textContent = '✓ Linked'
+    signInBtn.toggleAttribute('disabled', true)
+  } else {
+    step1.classList.remove('complete')
+    signinStatus.textContent = ''
+    signInBtn.innerHTML = '<span>𝕏</span> Sign in with X'
+    signInBtn.toggleAttribute('disabled', false)
+  }
+
+  if (status.hasApiKey) {
+    step2.classList.add('complete')
+  } else {
+    step2.classList.remove('complete')
+  }
+
+  updateOnboardingState()
+  completeBtn.toggleAttribute('disabled', !(status.linked && canCompleteOnboarding()))
+}
+
+function updateOnboardingState(): void {
+  const apiKey = ($('#onboarding-api-key') as HTMLInputElement).value.trim()
+  const completeBtn = $('#btn-onboarding-complete') as HTMLButtonElement
+  const hasKey = !!apiKey
+  if (hasKey) $('#onboarding-step-2').classList.add('complete')
+  window.grokBrowser.auth.status().then((status) => {
+    completeBtn.toggleAttribute('disabled', !(status.linked && (hasKey || status.hasApiKey)))
+  })
+}
+
+function canCompleteOnboarding(): boolean {
+  const apiKey = ($('#onboarding-api-key') as HTMLInputElement).value.trim()
+  return !!apiKey
+}
+
+async function handleSignIn(context: 'onboarding' | 'settings'): Promise<void> {
+  const btn = context === 'onboarding'
+    ? $('#btn-onboarding-sign-in') as HTMLButtonElement
+    : $('#btn-settings-sign-in') as HTMLButtonElement
+
+  btn.toggleAttribute('disabled', true)
+  btn.textContent = 'Signing in...'
+
+  try {
+    const status = await window.grokBrowser.auth.signIn()
+    updateOnboardingUI(status)
+    refreshAccountUI()
+    showToast('X account linked', 'success')
+  } catch {
+    showToast('Sign-in cancelled or failed')
+  } finally {
+    if (context === 'onboarding') {
+      btn.innerHTML = '<span>𝕏</span> Sign in with X'
+    } else {
+      btn.textContent = 'Sign in with X'
+    }
+    const status = await window.grokBrowser.auth.status()
+    btn.toggleAttribute('disabled', status.linked)
+    if (status.linked && context === 'settings') {
+      btn.textContent = 'Sign out'
+      btn.onclick = () => handleSignOut()
+    }
+  }
+}
+
+async function handleSignOut(): Promise<void> {
+  const status = await window.grokBrowser.auth.signOut()
+  refreshAccountUI()
+  updateOnboardingUI(status)
+  onboardingModal.hidden = false
+  showToast('Signed out of X account')
+}
+
+async function refreshAccountUI(): Promise<void> {
+  const status = await window.grokBrowser.auth.status()
+  const nameEl = $('#settings-account-name')
+  const statusEl = $('#settings-account-status')
+  const btn = $('#btn-settings-sign-in') as HTMLButtonElement
+
+  if (status.linked) {
+    nameEl.textContent = status.username || 'X account linked'
+    statusEl.textContent = status.linkedAt
+      ? `Linked ${new Date(status.linkedAt).toLocaleDateString()}`
+      : 'Account linked'
+    btn.textContent = 'Sign out'
+    btn.onclick = () => handleSignOut()
+  } else {
+    nameEl.textContent = 'Not linked'
+    statusEl.textContent = 'Sign in to link your X account'
+    btn.textContent = 'Sign in with X'
+    btn.onclick = () => handleSignIn('settings')
+  }
+}
+
+async function completeOnboarding(): Promise<void> {
+  const apiKey = ($('#onboarding-api-key') as HTMLInputElement).value.trim()
+  if (apiKey) {
+    await window.grokBrowser.settings.set({ apiKey })
+  }
+
+  const status = await window.grokBrowser.auth.status()
+  if (!status.linked) {
+    showToast('Please sign in with your X account first')
+    return
+  }
+  if (!apiKey && !status.hasApiKey) {
+    showToast('Please enter your xAI API key')
+    return
+  }
+
+  await window.grokBrowser.auth.completeOnboarding()
+  onboardingModal.hidden = true
+  showToast('Welcome to Grok Browser!', 'success')
 }
 
 async function loadSettings(): Promise<void> {
@@ -487,6 +661,10 @@ async function saveSettings(): Promise<void> {
     restoreSession: ($('#setting-restore-session') as HTMLInputElement).checked
   })
   settingsModal.hidden = true
+  const status = await window.grokBrowser.auth.status()
+  if (status.linked && (status.hasApiKey || ($('#setting-api-key') as HTMLInputElement).value)) {
+    await window.grokBrowser.auth.completeOnboarding()
+  }
   showToast('Settings saved', 'success')
 }
 

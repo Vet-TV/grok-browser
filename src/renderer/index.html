@@ -9,6 +9,7 @@
   </head>
   <body>
     <div id="app">
+      <div id="chrome-shell" class="chrome-shell">
       <!-- Title bar -->
       <header class="titlebar" id="titlebar">
         <div class="titlebar-drag">
@@ -64,6 +65,7 @@
           <button class="tool-btn" id="btn-settings" title="Settings">⚙</button>
         </div>
       </nav>
+      </div>
 
       <!-- Grok sidebar -->
       <aside class="grok-sidebar" id="grok-sidebar">
@@ -167,6 +169,19 @@
           <button class="modal-close" id="btn-settings-close">✕</button>
         </div>
         <div class="modal-body">
+          <div class="account-section" id="settings-account-section">
+            <span class="field-label">X Account</span>
+            <div class="account-card" id="settings-account-card">
+              <div class="account-info">
+                <span class="account-avatar">𝕏</span>
+                <div>
+                  <div class="account-name" id="settings-account-name">Not linked</div>
+                  <div class="account-status" id="settings-account-status">Sign in to link your X account</div>
+                </div>
+              </div>
+              <button class="btn-secondary" id="btn-settings-sign-in">Sign in with X</button>
+            </div>
+          </div>
           <label class="field">
             <span>xAI API Key</span>
             <input type="password" id="setting-api-key" placeholder="xai-..." />
@@ -200,6 +215,44 @@
         </div>
         <div class="modal-footer">
           <button class="btn-primary" id="btn-save-settings">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Onboarding modal (required on first launch) -->
+    <div class="modal-overlay onboarding-overlay" id="onboarding-modal" hidden>
+      <div class="modal onboarding-modal">
+        <div class="onboarding-header">
+          <span class="onboarding-logo">𝕏</span>
+          <h2>Welcome to Grok Browser</h2>
+          <p>Sign in with your X account to link Grok to your browser and unlock AI-powered browsing.</p>
+        </div>
+        <div class="onboarding-steps">
+          <div class="onboarding-step" id="onboarding-step-1">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h3>Link your X account</h3>
+              <p>Connect your X account so Grok can personalize your experience and access browser features.</p>
+              <button class="btn-primary btn-x-signin" id="btn-onboarding-sign-in">
+                <span>𝕏</span> Sign in with X
+              </button>
+              <div class="step-status" id="onboarding-signin-status"></div>
+            </div>
+          </div>
+          <div class="onboarding-step" id="onboarding-step-2">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h3>Add your xAI API key</h3>
+              <p>Grok needs an API key to power chat, summaries, and research. Get one free at console.x.ai.</p>
+              <label class="field">
+                <input type="password" id="onboarding-api-key" placeholder="xai-..." />
+              </label>
+              <button class="btn-ghost btn-sm" id="btn-onboarding-console">Open console.x.ai</button>
+            </div>
+          </div>
+        </div>
+        <div class="onboarding-footer">
+          <button class="btn-primary" id="btn-onboarding-complete" disabled>Get started</button>
         </div>
       </div>
     </div>
