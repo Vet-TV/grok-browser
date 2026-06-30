@@ -87,7 +87,9 @@ async function openDropdown(id: string): Promise<void> {
     backdrop.id = 'menu-backdrop'
     backdrop.className = 'menu-backdrop'
     backdrop.addEventListener('click', () => { void closeAllDropdowns() })
-    document.body.appendChild(backdrop)
+    const shell = document.getElementById('chrome-shell')
+    if (shell) shell.appendChild(backdrop)
+    else document.body.appendChild(backdrop)
   }
 
   el.classList.add('open')
