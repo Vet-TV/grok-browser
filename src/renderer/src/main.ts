@@ -346,7 +346,7 @@ async function sendMessage(): Promise<void> {
   chatHistory.push({ role: 'user', content: text })
 
   const usePageContext = shouldUsePageContext(text)
-  let channel: string
+  let channel: string | { error: string }
 
   if (usePageContext) {
     channel = await window.grokBrowser.grok.askPage(text)
@@ -394,7 +394,13 @@ async function researchTopic(topic: string): Promise<void> {
   await consumeStream(channel)
 }
 
-async function consumeStream(channel: string): Promise<void> {
+async function consumeStream(channel: string | { error: string }): Promise<void> {
+  if (typeof channel === 'object' && channel && 'error' in channel) {
+    showToast(channel.error, 'error')
+    appendMessage('assistant', `⚠️ ${channel.error}`)
+    return
+  }
+
   isStreaming = true
   $('#btn-send').toggleAttribute('disabled', true)
 

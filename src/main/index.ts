@@ -19,7 +19,7 @@ import {
   signOutXAccount
 } from './auth-service'
 import { dataStore } from './data-store'
-import { openDownload } from './downloads'
+import { openDownload, windowSessions, incognitoDownloads } from './downloads'
 import { extensionsService } from './extensions-service'
 import { grokService } from './grok-service'
 import { passwordStore } from './password-store'
@@ -91,7 +91,17 @@ function setupIpc(): void {
   ipcMain.handle('history:list', () => dataStore.getHistory())
   ipcMain.handle('history:clear', () => dataStore.clearHistory())
 
-  ipcMain.handle('downloads:list', () => dataStore.getDownloads())
+  ipcMain.handle('downloads:list', (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win) {
+      const info = windowSessions.get(win)
+      if (info && info.isIncognito) {
+        const list = incognitoDownloads.get(info.session) || []
+        return [...list, ...dataStore.getDownloads()]
+      }
+    }
+    return dataStore.getDownloads()
+  })
   ipcMain.handle('downloads:open', (_, path: string) => openDownload(path))
 
   ipcMain.handle('sidebar:set', (e, open: boolean, width?: number) => {

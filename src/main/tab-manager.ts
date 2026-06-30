@@ -540,6 +540,14 @@ export class TabManager {
   getSidebarState(): { open: boolean; width: number } {
     return { open: this.sidebarOpen, width: this.sidebarWidth }
   }
+
+  getSession(): Electron.Session {
+    return this.tabSession
+  }
+
+  isIncognito(): boolean {
+    return this.incognito
+  }
 }
 
 export function configureSession(): void {

@@ -82,7 +82,7 @@ export function createBrowserWindow(options?: { incognito?: boolean }): BrowserI
   const instance: BrowserInstance = { window: win, tabManager, incognito, tabsInitialized: false }
   instances.set(win.id, instance)
 
-  setupDownloads(win)
+  setupDownloads(win, tabManager.getSession(), incognito)
 
   win.on('resize', () => tabManager.layoutViews())
   win.on('maximize', () => tabManager.layoutViews())
