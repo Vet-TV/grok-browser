@@ -3,7 +3,6 @@ import { settingsStore } from './store'
 
 const AUTH_PARTITION = 'persist:grok-x-auth'
 const SIGN_IN_URL = 'https://accounts.x.ai/sign-in?redirect=https://grok.com'
-const API_KEYS_URL = 'https://console.x.ai/team/default/api-keys'
 
 export interface XAccountInfo {
   linked: boolean
@@ -18,16 +17,65 @@ function authSession() {
   return session.fromPartition(AUTH_PARTITION)
 }
 
+function parseHost(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+function isSignInPage(url: string): boolean {
+  const host = parseHost(url)
+  return host === 'accounts.x.ai'
+}
+
+function isAuthenticatedDestination(url: string): boolean {
+  const host = parseHost(url)
+  if (!host || isSignInPage(url)) return false
+  if (host === 'grok.com' || host.endsWith('.grok.com')) return true
+  if (host === 'console.x.ai') return true
+  if (host === 'x.ai' || host.endsWith('.x.ai')) return true
+  return false
+}
+
 async function hasAuthCookies(): Promise<boolean> {
   const sess = authSession()
-  const domains = ['.x.ai', 'x.ai', '.x.com', 'x.com', '.twitter.com']
+  const domains = ['.x.ai', 'x.ai', '.x.com', 'x.com', '.twitter.com', 'twitter.com', '.grok.com', 'grok.com']
   for (const domain of domains) {
     const cookies = await sess.cookies.get({ domain })
-    if (cookies.some((c) => c.name.toLowerCase().includes('auth') || c.name.toLowerCase().includes('session') || c.name === 'ct0')) {
+    if (
+      cookies.some(
+        (c) =>
+          c.name.toLowerCase().includes('auth') ||
+          c.name.toLowerCase().includes('session') ||
+          c.name === 'ct0' ||
+          c.name === 'auth_token'
+      )
+    ) {
       return true
     }
   }
   return false
+}
+
+async function markAccountLinked(authWindow: BrowserWindow): Promise<void> {
+  settingsStore.set('xAccountLinked', true)
+  settingsStore.set('xLinkedAt', Date.now())
+
+  try {
+    const title = authWindow.webContents.getTitle()
+    if (title && !title.toLowerCase().includes('sign') && !title.toLowerCase().includes('log')) {
+      settingsStore.set('xUsername', title.split('|')[0].trim())
+    }
+  } catch {
+    // optional
+  }
+}
+
+export function configureAuthSession(): void {
+  const sess = authSession()
+  sess.setPermissionRequestHandler((_wc, _permission, callback) => callback(true))
 }
 
 export function getXAccountStatus(): XAccountInfo {
@@ -54,24 +102,25 @@ export function signOutXAccount(): void {
   authSession().clearStorageData()
 }
 
-export function openXSignIn(parent: BrowserWindow | null): Promise<XAccountInfo> {
+export function openXSignIn(_parent: BrowserWindow | null): Promise<XAccountInfo> {
   return new Promise((resolve, reject) => {
     let resolved = false
-    let step: 'signin' | 'apikey' = 'signin'
 
     const authWindow = new BrowserWindow({
-      width: 500,
-      height: 760,
-      parent: parent ?? undefined,
-      modal: !!parent,
+      width: 520,
+      height: 720,
+      center: true,
       title: 'Sign in with X',
       autoHideMenuBar: true,
       backgroundColor: '#0a0a0f',
+      show: false,
+      minimizable: true,
+      maximizable: false,
       webPreferences: {
         partition: AUTH_PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: true
+        sandbox: false
       }
     })
 
@@ -89,55 +138,67 @@ export function openXSignIn(parent: BrowserWindow | null): Promise<XAccountInfo>
       reject(new Error(message))
     }
 
-    const handleNavigation = async (url: string) => {
-      if (resolved) return
+    const checkAuthSuccess = async (url: string) => {
+      if (resolved || isSignInPage(url)) return
 
-      const onGrok = url.includes('grok.com') || url.includes('x.ai')
-      const onConsole = url.includes('console.x.ai')
+      const host = parseHost(url)
 
-      if (step === 'signin' && onGrok) {
-        const hasCookies = await hasAuthCookies()
-        if (hasCookies || url.includes('grok.com')) {
-          settingsStore.set('xAccountLinked', true)
-          settingsStore.set('xLinkedAt', Date.now())
-
-          try {
-            const title = authWindow.webContents.getTitle()
-            if (title && !title.includes('Sign')) {
-              settingsStore.set('xUsername', title.split('|')[0].trim())
-            }
-          } catch {
-            // optional
-          }
-
-          step = 'apikey'
-          authWindow.loadURL(API_KEYS_URL).catch(() => {
-            finish(getXAccountStatus())
-          })
-        }
+      // Landed on grok.com after OAuth redirect — definite success
+      if (host === 'grok.com' || host.endsWith('.grok.com')) {
+        await markAccountLinked(authWindow)
+        finish(getXAccountStatus())
+        return
       }
 
-      if (step === 'apikey' && onConsole) {
-        if (settingsStore.get('apiKey')) {
-          settingsStore.set('onboardingComplete', true)
+      // On other xAI / console pages with session cookies — success
+      if (isAuthenticatedDestination(url)) {
+        const cookies = await hasAuthCookies()
+        if (cookies) {
+          await markAccountLinked(authWindow)
           finish(getXAccountStatus())
         }
       }
     }
 
-    authWindow.webContents.on('did-navigate', (_, url) => handleNavigation(url))
-    authWindow.webContents.on('did-navigate-in-page', (_, url) => handleNavigation(url))
+    authWindow.once('ready-to-show', () => {
+      authWindow.show()
+      authWindow.focus()
+    })
+
+    authWindow.webContents.setWindowOpenHandler(({ url }) => {
+      authWindow.webContents.loadURL(url).catch(() => {})
+      return { action: 'deny' }
+    })
+
+    authWindow.webContents.on('did-navigate', (_, url) => {
+      checkAuthSuccess(url).catch(() => {})
+    })
+    authWindow.webContents.on('did-navigate-in-page', (_, url) => {
+      checkAuthSuccess(url).catch(() => {})
+    })
+    authWindow.webContents.on('did-redirect-navigation', (_, url) => {
+      checkAuthSuccess(url).catch(() => {})
+    })
+
+    authWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+      if (resolved || errorCode === -3) return // aborted navigation
+      if (validatedURL.startsWith('https://accounts.x.ai') || validatedURL.startsWith('https://x.com')) {
+        fail(`Could not load sign-in page (${errorDescription})`)
+      }
+    })
 
     authWindow.on('closed', () => {
       if (!resolved) {
         if (settingsStore.get('xAccountLinked')) {
           finish(getXAccountStatus())
         } else {
-          fail('Sign-in window closed')
+          fail('Sign-in was cancelled')
         }
       }
     })
 
-    authWindow.loadURL(SIGN_IN_URL).catch(() => fail('Could not load sign-in page'))
+    authWindow.loadURL(SIGN_IN_URL).catch((err) => {
+      fail(err instanceof Error ? err.message : 'Could not load sign-in page')
+    })
   })
 }

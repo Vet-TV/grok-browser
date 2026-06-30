@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import {
+  configureAuthSession,
   getXAccountStatus,
   markOnboardingComplete,
   openXSignIn,
@@ -231,6 +232,7 @@ function setupIpc(): void {
 
 app.whenReady().then(() => {
   configureSession()
+  configureAuthSession()
   setupIpc()
   createWindow()
 

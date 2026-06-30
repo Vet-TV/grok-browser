@@ -575,8 +575,11 @@ async function handleSignIn(context: 'onboarding' | 'settings'): Promise<void> {
     updateOnboardingUI(status)
     refreshAccountUI()
     showToast('X account linked', 'success')
-  } catch {
-    showToast('Sign-in cancelled or failed')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Sign-in cancelled or failed'
+    if (!message.toLowerCase().includes('cancelled')) {
+      showToast(message)
+    }
   } finally {
     if (context === 'onboarding') {
       btn.innerHTML = '<span>𝕏</span> Sign in with X'
