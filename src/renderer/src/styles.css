@@ -652,7 +652,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3000;
+  z-index: 5500;
   pointer-events: auto;
 }
 
@@ -793,6 +793,15 @@ html, body {
   z-index: 2000;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   pointer-events: auto;
+}
+
+.find-bar[hidden] {
+  display: none !important;
+}
+
+body.overlay-ui-open .grok-sidebar,
+body.overlay-ui-open .find-bar {
+  z-index: 500;
 }
 
 .grok-sidebar.closed ~ .find-bar,
@@ -1167,7 +1176,7 @@ body:has(.grok-sidebar.closed) .find-bar {
 .menu-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 3500;
+  z-index: 5900;
   background: transparent;
   pointer-events: auto;
 }
@@ -1182,7 +1191,7 @@ body:has(.grok-sidebar.closed) .find-bar {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-  z-index: 4000;
+  z-index: 6000;
   pointer-events: auto;
   overflow: visible;
 }
@@ -1198,14 +1207,23 @@ body:has(.grok-sidebar.closed) .find-bar {
   position: relative;
 }
 
-.menu-quick, .menu-standalone { padding: 2px 0; }
+.menu-quick,
+.menu-standalone {
+  padding: 2px 0;
+  position: relative;
+  z-index: 2;
+  background: var(--bg-elevated);
+}
+
+.menu-categories {
+  position: relative;
+  z-index: 1;
+}
 .menu-divider {
   height: 1px;
   background: var(--border-subtle);
   margin: 4px 12px;
 }
-.menu-categories { position: relative; }
-
 .menu-category {
   position: relative;
 }
@@ -1240,7 +1258,7 @@ body:has(.grok-sidebar.closed) .find-bar {
   border-radius: var(--radius);
   box-shadow: 0 12px 40px rgba(0,0,0,0.55);
   padding: 6px 0;
-  z-index: 4100;
+  z-index: 6100;
   pointer-events: auto;
 }
 .menu-category.active .menu-submenu {

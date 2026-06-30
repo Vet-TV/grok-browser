@@ -31,19 +31,43 @@ let callbacks: MenuCallbacks
 let activeDropdown: HTMLElement | null = null
 let menuOpening = false
 
+const OVERLAY_ACTIONS = new Set([
+  'history',
+  'bookmarks',
+  'downloads',
+  'tab-groups',
+  'clear-data',
+  'tab-search',
+  'task-manager',
+  'performance',
+  'extensions',
+  'about',
+  'settings',
+  'password-manager',
+  'password-payments',
+  'password-contacts',
+  'password-identity',
+  'password-travel',
+  'find-in-page',
+  'find',
+  'qr-code'
+])
+
 function $(sel: string) {
   return document.querySelector(sel) as HTMLElement | null
 }
 
-async function closeAllDropdowns(): Promise<void> {
+function closeDropdownVisuals(): void {
   document.querySelectorAll('.toolbar-dropdown.open').forEach((el) => {
     el.classList.remove('open')
   })
   document.getElementById('menu-backdrop')?.remove()
-  if (activeDropdown) {
-    activeDropdown = null
-    await popOverlay()
-  }
+  activeDropdown = null
+}
+
+async function closeAllDropdowns(): Promise<void> {
+  closeDropdownVisuals()
+  await popOverlay()
 }
 
 async function openDropdown(id: string): Promise<void> {
@@ -86,7 +110,11 @@ function bindMenuActions(root: HTMLElement): void {
       e.preventDefault()
       e.stopPropagation()
       const action = (btn as HTMLElement).dataset.action!
-      void closeAllDropdowns().then(() => handleMenuAction(action))
+      const keepOverlay = OVERLAY_ACTIONS.has(action)
+      closeDropdownVisuals()
+      void handleMenuAction(action).then(async () => {
+        if (!keepOverlay) await popOverlay()
+      })
     })
   })
 }
@@ -129,15 +157,33 @@ function renderAppMenu(): void {
     const submenu = cat.querySelector('.menu-submenu') as HTMLElement
     if (!row || !submenu) return
 
-    const show = () => {
+    let hideTimer: ReturnType<typeof setTimeout> | null = null
+
+    const resetSubmenu = (sub: HTMLElement): void => {
+      sub.style.display = ''
+      sub.style.position = ''
+      sub.style.left = ''
+      sub.style.top = ''
+      sub.style.right = ''
+    }
+
+    const hide = (): void => {
+      hideTimer = setTimeout(() => {
+        cat.classList.remove('active')
+        resetSubmenu(submenu)
+        hideTimer = null
+      }, 180)
+    }
+
+    const show = (): void => {
+      if (hideTimer) {
+        clearTimeout(hideTimer)
+        hideTimer = null
+      }
       container.querySelectorAll('.menu-category.active').forEach((c) => {
         c.classList.remove('active')
         const sub = c.querySelector('.menu-submenu') as HTMLElement
-        if (sub) {
-          sub.style.position = ''
-          sub.style.left = ''
-          sub.style.top = ''
-        }
+        if (sub) resetSubmenu(sub)
       })
       cat.classList.add('active')
       submenu.style.display = 'block'
@@ -148,20 +194,16 @@ function renderAppMenu(): void {
       const maxTop = window.innerHeight - subH - 8
       if (top > maxTop) top = Math.max(8, maxTop)
       submenu.style.position = 'fixed'
-      submenu.style.left = `${rowRect.left - subW - 8}px`
+      submenu.style.left = `${rowRect.left - subW - 2}px`
       submenu.style.top = `${top}px`
       submenu.style.right = 'auto'
     }
 
     row.addEventListener('mouseenter', show)
     cat.addEventListener('mouseenter', show)
-    cat.addEventListener('mouseleave', () => {
-      cat.classList.remove('active')
-      submenu.style.display = ''
-      submenu.style.position = ''
-      submenu.style.left = ''
-      submenu.style.top = ''
-    })
+    submenu.addEventListener('mouseenter', show)
+    cat.addEventListener('mouseleave', hide)
+    submenu.addEventListener('mouseleave', hide)
   })
 }
 

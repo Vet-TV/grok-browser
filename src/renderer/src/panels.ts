@@ -5,7 +5,12 @@ const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)
 let overlayDepth = 0
 
 async function syncOverlay(): Promise<void> {
+  document.body.classList.toggle('overlay-ui-open', overlayDepth > 0)
   await window.grokBrowser.chrome.setOverlayOpen(overlayDepth > 0)
+}
+
+export function isOverlayActive(): boolean {
+  return overlayDepth > 0
 }
 
 export async function pushOverlay(): Promise<void> {
@@ -21,7 +26,7 @@ export async function popOverlay(): Promise<void> {
 export async function openModal(id: string): Promise<void> {
   const modal = document.getElementById(id)
   if (!modal || !modal.hidden) return
-  await pushOverlay()
+  if (overlayDepth === 0) await pushOverlay()
   modal.hidden = false
 }
 

@@ -3,6 +3,7 @@ import type { GrokStreamChunk, TabInfo, XAccountInfo } from '../../preload/index
 import { setupMenu } from './menu'
 import {
   closeModal,
+  isOverlayActive,
   openModal,
   popOverlay,
   pushOverlay,
@@ -180,7 +181,7 @@ function setupFindBar(): void {
 }
 
 async function showFindBar(): Promise<void> {
-  if (findBar.hidden) await pushOverlay()
+  if (findBar.hidden && !isOverlayActive()) await pushOverlay()
   findBar.hidden = false
   findInput.value = ''
   findInput.focus()
