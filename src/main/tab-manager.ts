@@ -12,6 +12,15 @@ export interface TabInfo {
   canGoBack: boolean
   canGoForward: boolean
   isBookmarked: boolean
+  groupId?: string
+  groupName?: string
+  groupColor?: string
+}
+
+export interface TabGroup {
+  id: string
+  name: string
+  color: string
 }
 
 export interface ChromeLayout {
@@ -27,7 +36,15 @@ interface Tab {
   favicon?: string
   loading: boolean
   zoomLevel: number
+  groupId?: string
 }
+
+export interface TabManagerOptions {
+  incognito?: boolean
+  partition?: string
+}
+
+const GROUP_COLORS = ['#e8a838', '#1d9bf0', '#34d399', '#f87171', '#7856ff', '#f472b6']
 
 const DEFAULT_CHROME_HEIGHT = 112
 const NEW_TAB_URL = 'grok-browser://newtab'
@@ -39,6 +56,7 @@ function getNewTabPath(): string {
 export class TabManager {
   private window: BrowserWindow
   private tabs = new Map<string, Tab>()
+  private groups = new Map<string, TabGroup>()
   private activeTabId: string | null = null
   private chromeHeight = DEFAULT_CHROME_HEIGHT
   private sidebarWidth = settingsStore.get('sidebarWidth')
@@ -46,9 +64,16 @@ export class TabManager {
   private tabsReady = false
   private overlayOpen = false
   private contentAttached = false
+  private incognito: boolean
+  private groupColorIndex = 0
+  private tabSession: Electron.Session
 
-  constructor(window: BrowserWindow) {
+  constructor(window: BrowserWindow, options: TabManagerOptions = {}) {
     this.window = window
+    this.incognito = options.incognito ?? false
+    this.tabSession = options.partition
+      ? session.fromPartition(options.partition)
+      : session.defaultSession
     this.sidebarWidth = settingsStore.get('sidebarWidth')
     this.sidebarOpen = settingsStore.get('sidebarOpen')
   }
@@ -106,6 +131,7 @@ export class TabManager {
     const id = crypto.randomUUID()
     const view = new WebContentsView({
       webPreferences: {
+        session: this.tabSession,
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
@@ -208,7 +234,7 @@ export class TabManager {
       const tab = this.tabs.get(id)
       if (tab) {
         tab.url = url.includes('newtab.html') ? NEW_TAB_URL : url
-        if (tab.url !== NEW_TAB_URL) {
+        if (!this.incognito && tab.url !== NEW_TAB_URL) {
           dataStore.addHistory({ title: tab.title, url: tab.url })
         }
         this.emitActiveTabUpdate()
@@ -299,6 +325,47 @@ export class TabManager {
   getActiveView(): WebContentsView | null {
     if (!this.activeTabId) return null
     return this.tabs.get(this.activeTabId)?.view ?? null
+  }
+
+  getActiveTabInfo(): TabInfo | null {
+    if (!this.activeTabId) return null
+    const infos = this.getTabInfos()
+    return infos.find((t) => t.id === this.activeTabId) ?? null
+  }
+
+  getTabInfos(): TabInfo[] {
+    return this.buildTabInfos()
+  }
+
+  getTabGroups(): TabGroup[] {
+    return [...this.groups.values()]
+  }
+
+  createTabGroup(name?: string): TabGroup {
+    const id = crypto.randomUUID()
+    const group: TabGroup = {
+      id,
+      name: name || `Group ${this.groups.size + 1}`,
+      color: GROUP_COLORS[this.groupColorIndex++ % GROUP_COLORS.length]
+    }
+    this.groups.set(id, group)
+    if (this.activeTabId) {
+      const tab = this.tabs.get(this.activeTabId)
+      if (tab) tab.groupId = id
+    }
+    this.emitTabsUpdate()
+    return group
+  }
+
+  assignTabToGroup(tabId: string, groupId: string | null): void {
+    const tab = this.tabs.get(tabId)
+    if (!tab) return
+    tab.groupId = groupId || undefined
+    this.emitTabsUpdate()
+  }
+
+  setWindowName(name: string): void {
+    this.window.setTitle(name || (this.incognito ? 'Grok Browser — Incognito' : 'Grok Browser'))
   }
 
   navigate(url: string): void {
@@ -432,21 +499,27 @@ export class TabManager {
     }
   }
 
-  private getTabInfos(): TabInfo[] {
-    return [...this.tabs.values()].map((t) => ({
-      id: t.id,
-      title: t.title,
-      url: t.url,
-      favicon: t.favicon,
-      loading: t.loading,
-      canGoBack: t.view.webContents.canGoBack(),
-      canGoForward: t.view.webContents.canGoForward(),
-      isBookmarked: t.url !== NEW_TAB_URL && dataStore.isBookmarked(t.url)
-    }))
+  private buildTabInfos(): TabInfo[] {
+    return [...this.tabs.values()].map((t) => {
+      const group = t.groupId ? this.groups.get(t.groupId) : undefined
+      return {
+        id: t.id,
+        title: t.title,
+        url: t.url,
+        favicon: t.favicon,
+        loading: t.loading,
+        canGoBack: t.view.webContents.canGoBack(),
+        canGoForward: t.view.webContents.canGoForward(),
+        isBookmarked: t.url !== NEW_TAB_URL && dataStore.isBookmarked(t.url),
+        groupId: t.groupId,
+        groupName: group?.name,
+        groupColor: group?.color
+      }
+    })
   }
 
   private emitTabsUpdate(): void {
-    this.window.webContents.send('tabs:updated', this.getTabInfos(), this.activeTabId)
+    this.window.webContents.send('tabs:updated', this.buildTabInfos(), this.activeTabId)
   }
 
   private emitActiveTabUpdate(): void {

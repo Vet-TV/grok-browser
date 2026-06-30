@@ -1,13 +1,11 @@
 import { marked } from 'marked'
 import type { GrokStreamChunk, TabInfo, XAccountInfo } from '../../preload/index'
+import { setupMenu } from './menu'
 import {
   closeModal,
   openModal,
   popOverlay,
   pushOverlay,
-  renderBookmarks,
-  renderDownloads,
-  renderHistory,
   setupPanelModals,
   updateDownloadsBadge
 } from './panels'
@@ -48,7 +46,19 @@ function init(): void {
   setupChat()
   setupSettings()
   setupAuth()
-  setupPanels()
+  setupPanelModals()
+  setupMenu({
+    showFindBar,
+    openSettings: () => { openModal('settings-modal'); loadSettings(); refreshAccountUI() },
+    handleSignIn: () => handleSignIn('onboarding'),
+    handleSignOut: () => handleSignOut(),
+    toggleSidebar: () => {
+      sidebarOpen = !sidebarOpen
+      window.grokBrowser.sidebar.set(sidebarOpen, sidebarWidth)
+      updateSidebarUI()
+    },
+    showToast
+  })
   setupFindBar()
   setupKeyboardShortcuts()
   setupDownloads()
@@ -65,6 +75,38 @@ function init(): void {
   })
 
   checkOnboarding()
+  setupAbout()
+  setupGrokStreamBridge()
+
+  document.querySelector('#btn-clear-history')?.addEventListener('click', async () => {
+    await window.grokBrowser.history.clear()
+    const { renderHistory } = await import('./panels')
+    await renderHistory()
+  })
+
+  window.grokBrowser.window.onMeta((meta) => {
+    if (meta.incognito) document.body.classList.add('incognito')
+    const ver = document.querySelector('#about-version')
+    if (ver) ver.textContent = `Version ${meta.version}`
+  })
+  window.grokBrowser.app.version().then((v) => {
+    const ver = document.querySelector('#about-version')
+    if (ver) ver.textContent = `Version ${v}`
+  })
+}
+
+function setupAbout(): void {
+  $('#about-github')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    window.grokBrowser.shell.openExternal('https://github.com/Vet-TV/grok-browser')
+  })
+}
+
+function setupGrokStreamBridge(): void {
+  document.addEventListener('grok-stream', async (e) => {
+    const channel = (e as CustomEvent).detail as string
+    if (channel) await consumeStream(channel)
+  })
 }
 
 function setupChromeLayout(): void {
@@ -96,7 +138,7 @@ function setupNavigation(): void {
   $('#btn-back').onclick = () => window.grokBrowser.tabs.back()
   $('#btn-forward').onclick = () => window.grokBrowser.tabs.forward()
   $('#btn-reload').onclick = () => window.grokBrowser.tabs.reload()
-  $('#btn-home').onclick = () => window.grokBrowser.tabs.create()
+  $('#btn-home').onclick = () => window.grokBrowser.page.home()
   $('#btn-new-tab').onclick = () => window.grokBrowser.tabs.create()
 
   $('#btn-bookmark').onclick = async () => {
@@ -112,27 +154,6 @@ function setupNavigation(): void {
     }
   })
   omnibox.addEventListener('focus', () => omnibox.select())
-}
-
-function setupPanels(): void {
-  setupPanelModals()
-
-  $('#btn-history').onclick = async () => {
-    await renderHistory()
-    openModal('history-modal')
-  }
-
-  $('#btn-downloads').onclick = async () => {
-    await renderDownloads()
-    openModal('downloads-modal')
-    activeDownloads = 0
-    updateDownloadsBadge(0)
-  }
-
-  $('#btn-clear-history').onclick = async () => {
-    await window.grokBrowser.history.clear()
-    await renderHistory()
-  }
 }
 
 function setupFindBar(): void {
@@ -186,7 +207,11 @@ function renderTabs(tabs: TabInfo[], activeId: string | null): void {
   for (const tab of tabs) {
     const el = document.createElement('button')
     el.className = `tab${tab.id === activeId ? ' active' : ''}`
+    const groupDot = tab.groupColor
+      ? `<span class="tab-group-dot" style="background:${tab.groupColor}"></span>`
+      : ''
     el.innerHTML = `
+      ${groupDot}
       ${tab.favicon ? `<img class="tab-favicon" src="${tab.favicon}" alt="" />` : '<span class="tab-favicon">🌐</span>'}
       <span class="tab-title">${escapeHtml(tab.title || 'New Tab')}</span>
       <span class="tab-close">×</span>
@@ -608,8 +633,10 @@ async function refreshAccountUI(): Promise<void> {
   const nameEl = $('#settings-account-name')
   const statusEl = $('#settings-account-status')
   const btn = $('#btn-settings-sign-in') as HTMLButtonElement
+  const avatar = $('#profile-avatar')
 
   if (status.linked) {
+    if (avatar) avatar.textContent = status.username ? status.username[0].toUpperCase() : '𝕏'
     nameEl.textContent = status.username || 'X account linked'
     statusEl.textContent = status.linkedAt
       ? `Linked ${new Date(status.linkedAt).toLocaleDateString()}`
@@ -617,6 +644,7 @@ async function refreshAccountUI(): Promise<void> {
     btn.textContent = 'Sign out'
     btn.onclick = () => handleSignOut()
   } else {
+    if (avatar) avatar.textContent = '𝕏'
     nameEl.textContent = 'Not linked'
     statusEl.textContent = 'Sign in to link your X account'
     btn.textContent = 'Sign in with X'
@@ -677,6 +705,38 @@ async function saveSettings(): Promise<void> {
 
 function setupKeyboardShortcuts(): void {
   document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'n' && !e.shiftKey) {
+      e.preventDefault()
+      window.grokBrowser.window.new()
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+      e.preventDefault()
+      window.grokBrowser.window.incognito()
+    }
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault()
+      window.grokBrowser.page.save()
+    }
+    if (e.ctrlKey && e.key === 'j') {
+      e.preventDefault()
+      import('./menu').then((m) => m.handleMenuAction('downloads'))
+    }
+    if (e.altKey && e.shiftKey && e.key === 'P') {
+      e.preventDefault()
+      window.grokBrowser.tabs.createGroup()
+    }
+    if (e.altKey && e.shiftKey && e.key === 'I') {
+      e.preventDefault()
+      import('./menu').then((m) => m.handleMenuAction('report-issue'))
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+      e.preventDefault()
+      import('./menu').then((m) => m.handleMenuAction('tab-search'))
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'Delete') {
+      e.preventDefault()
+      openModal('clear-data-modal')
+    }
     if (e.ctrlKey && e.key === 't') {
       e.preventDefault()
       window.grokBrowser.tabs.create()
@@ -729,7 +789,11 @@ function setupKeyboardShortcuts(): void {
     }
     if (e.ctrlKey && e.shiftKey && e.key === 'B') {
       e.preventDefault()
-      renderBookmarks().then(() => openModal('bookmarks-modal'))
+      import('./menu').then((m) => m.handleMenuAction('bookmarks'))
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+      e.preventDefault()
+      window.grokBrowser.page.devtools()
     }
   })
 }

@@ -37,33 +37,59 @@
       <!-- Toolbar -->
       <nav class="toolbar">
         <div class="nav-controls">
-          <button class="tool-btn" id="btn-back" title="Back" disabled>←</button>
-          <button class="tool-btn" id="btn-forward" title="Forward" disabled>→</button>
-          <button class="tool-btn" id="btn-reload" title="Reload">↻</button>
-          <button class="tool-btn" id="btn-home" title="Home">⌂</button>
+          <button class="tool-btn" id="btn-back" title="Back" disabled>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="tool-btn" id="btn-forward" title="Forward" disabled>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button class="tool-btn" id="btn-reload" title="Reload">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          </button>
+          <button class="tool-btn" id="btn-home" title="Home">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
         </div>
         <div class="omnibox-wrap">
+          <button class="omnibox-star" id="btn-bookmark" title="Bookmark this page (Ctrl+D)">☆</button>
           <div class="omnibox-icon" id="omnibox-icon">🔒</div>
-          <input type="text" class="omnibox" id="omnibox" placeholder="Search or enter URL" spellcheck="false" />
+          <input type="text" class="omnibox" id="omnibox" placeholder="Search Google or enter URL" spellcheck="false" />
           <div class="loading-indicator" id="loading-indicator"></div>
         </div>
         <div class="toolbar-actions">
-          <button class="tool-btn" id="btn-bookmark" title="Bookmark (Ctrl+D)">☆</button>
-          <button class="tool-btn" id="btn-history" title="History (Ctrl+H)">🕐</button>
-          <button class="tool-btn" id="btn-downloads" title="Downloads">
-            ⬇<span class="badge" id="downloads-badge" hidden>0</span>
-          </button>
+          <div class="toolbar-dropdown-wrap">
+            <button class="tool-btn" id="btn-extensions" title="Extensions">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </button>
+            <div class="toolbar-dropdown" id="extensions-dropdown">
+              <div class="dropdown-body" id="extensions-menu-body"></div>
+            </div>
+          </div>
           <button class="tool-btn grok-toggle" id="btn-grok" title="Toggle Grok (Ctrl+Shift+G)">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-10h2v8h-2V7z" opacity="0"/>
               <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" fill="none"/>
               <path d="M9.5 9.5c.5-1 1.5-1.5 2.5-1.5 1.5 0 2.5 1 2.5 2.3 0 1.2-.8 1.8-1.8 2.3-.7.3-1.2.8-1.2 1.5v.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-              <circle cx="12" cy="17" r="0.8" fill="currentColor"/>
             </svg>
             Grok
           </button>
-          <button class="tool-btn" id="btn-settings" title="Settings">⚙</button>
+          <div class="toolbar-dropdown-wrap">
+            <button class="tool-btn profile-btn" id="btn-profile" title="Profile">
+              <span class="profile-avatar" id="profile-avatar">𝕏</span>
+            </button>
+            <div class="toolbar-dropdown" id="profile-dropdown">
+              <div class="dropdown-body" id="profile-menu-body"></div>
+            </div>
+          </div>
+          <div class="toolbar-dropdown-wrap">
+            <button class="tool-btn" id="btn-menu" title="Menu">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </button>
+            <div class="toolbar-dropdown app-menu-dropdown" id="app-menu-dropdown">
+              <div class="dropdown-body app-menu-body" id="app-menu-body"></div>
+            </div>
+          </div>
         </div>
+        <span class="badge downloads-badge-toolbar" id="downloads-badge" hidden>0</span>
       </nav>
       </div>
 
@@ -217,6 +243,91 @@
           <button class="btn-primary" id="btn-save-settings">Save</button>
         </div>
       </div>
+    </div>
+
+    <!-- Clear browsing data -->
+    <div class="modal-overlay panel-modal" id="clear-data-modal" hidden>
+      <div class="modal">
+        <div class="modal-header"><h2>Delete browsing data</h2><button class="modal-close" data-close="clear-data-modal">✕</button></div>
+        <div class="modal-body">
+          <label class="field field-check"><input type="checkbox" id="clear-history" checked /><span>Browsing history</span></label>
+          <label class="field field-check"><input type="checkbox" id="clear-cookies" checked /><span>Cookies and site data</span></label>
+          <label class="field field-check"><input type="checkbox" id="clear-cache" checked /><span>Cached images and files</span></label>
+          <label class="field field-check"><input type="checkbox" id="clear-downloads" /><span>Download history</span></label>
+          <label class="field field-check"><input type="checkbox" id="clear-passwords" /><span>Passwords</span></label>
+          <label class="field"><span>Time range</span><select id="clear-range"><option value="hour">Last hour</option><option value="day">Last 24 hours</option><option value="week">Last 7 days</option><option value="all" selected>All time</option></select></label>
+        </div>
+        <div class="modal-footer"><button class="btn-primary" id="btn-clear-data-confirm">Delete data</button></div>
+      </div>
+    </div>
+
+    <!-- Tab search -->
+    <div class="modal-overlay panel-modal" id="tab-search-modal" hidden>
+      <div class="modal modal-wide"><div class="modal-header"><h2>Tab search</h2><button class="modal-close" data-close="tab-search-modal">✕</button></div>
+        <div class="modal-body list-body" id="tab-search-list"></div></div>
+    </div>
+
+    <!-- Tab groups -->
+    <div class="modal-overlay panel-modal" id="tab-groups-modal" hidden>
+      <div class="modal"><div class="modal-header"><h2>Tab groups</h2><button class="modal-close" data-close="tab-groups-modal">✕</button></div>
+        <div class="modal-body list-body" id="tab-groups-list"></div></div>
+    </div>
+
+    <!-- Extensions -->
+    <div class="modal-overlay panel-modal" id="extensions-modal" hidden>
+      <div class="modal modal-wide"><div class="modal-header"><h2>Extensions</h2><button class="modal-close" data-close="extensions-modal">✕</button></div>
+        <div class="modal-body list-body" id="extensions-list"></div></div>
+    </div>
+
+    <!-- Password manager -->
+    <div class="modal-overlay panel-modal" id="password-manager-modal" hidden>
+      <div class="modal modal-wide">
+        <div class="modal-header"><h2>Grok Password Manager</h2><button class="modal-close" data-close="password-manager-modal">✕</button></div>
+        <div class="pw-tabs">
+          <button class="pw-tab active" data-tab="passwords">Passwords</button>
+          <button class="pw-tab" data-tab="payments">Payments</button>
+          <button class="pw-tab" data-tab="contacts">Contacts</button>
+          <button class="pw-tab" data-tab="identities">Identity</button>
+          <button class="pw-tab" data-tab="travel">Travel</button>
+        </div>
+        <div class="modal-body">
+          <div class="pw-panel active" data-panel="passwords">
+            <div class="pw-add-form">
+              <input id="pw-site" placeholder="Website" /><input id="pw-user" placeholder="Username" /><input id="pw-pass" type="password" placeholder="Password" />
+              <button class="btn-primary btn-sm" id="btn-pw-add">Add</button>
+            </div>
+            <div class="pw-list"></div>
+          </div>
+          <div class="pw-panel" data-panel="payments"><div class="pw-list"></div></div>
+          <div class="pw-panel" data-panel="contacts"><div class="pw-list"></div></div>
+          <div class="pw-panel" data-panel="identities"><div class="pw-list"></div></div>
+          <div class="pw-panel" data-panel="travel"><div class="pw-list"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Task manager -->
+    <div class="modal-overlay panel-modal" id="task-manager-modal" hidden>
+      <div class="modal modal-wide"><div class="modal-header"><h2>Task manager</h2><button class="modal-close" data-close="task-manager-modal">✕</button></div>
+        <div class="modal-body list-body" id="task-manager-list"></div></div>
+    </div>
+
+    <!-- QR code -->
+    <div class="modal-overlay panel-modal" id="qr-modal" hidden>
+      <div class="modal"><div class="modal-header"><h2>QR code</h2><button class="modal-close" data-close="qr-modal">✕</button></div>
+        <div class="modal-body qr-body"><img id="qr-code-img" alt="QR code" /></div></div>
+    </div>
+
+    <!-- About -->
+    <div class="modal-overlay panel-modal" id="about-modal" hidden>
+      <div class="modal"><div class="modal-header"><h2>About Grok Browser</h2><button class="modal-close" data-close="about-modal">✕</button></div>
+        <div class="modal-body about-body">
+          <span class="onboarding-logo">𝕏</span>
+          <h3>Grok Browser</h3>
+          <p id="about-version">Version</p>
+          <p class="about-desc">Open-source Chromium browser with Grok AI built in.</p>
+          <a href="#" id="about-github">github.com/Vet-TV/grok-browser</a>
+        </div></div>
     </div>
 
     <!-- Onboarding modal (required on first launch) -->

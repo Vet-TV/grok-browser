@@ -9,6 +9,15 @@ export interface TabInfo {
   canGoBack: boolean
   canGoForward: boolean
   isBookmarked: boolean
+  groupId?: string
+  groupName?: string
+  groupColor?: string
+}
+
+export interface TabGroup {
+  id: string
+  name: string
+  color: string
 }
 
 export interface GrokStreamChunk {
@@ -53,12 +62,38 @@ export interface XAccountInfo {
   onboardingComplete: boolean
 }
 
+export interface ExtensionInfo {
+  id: string
+  name: string
+  version: string
+  description: string
+  enabled: boolean
+  path: string
+}
+
+export interface TaskInfo {
+  tabId: string
+  title: string
+  url: string
+  memoryMB: number
+}
+
 const api = {
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
-    isMaximized: () => ipcRenderer.invoke('window:is-maximized')
+    isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+    new: () => ipcRenderer.invoke('window:new'),
+    incognito: () => ipcRenderer.invoke('window:incognito'),
+    onMeta: (cb: (meta: { incognito: boolean; version: string }) => void) => {
+      const handler = (_: unknown, meta: { incognito: boolean; version: string }) => cb(meta)
+      ipcRenderer.on('window:meta', handler)
+      return () => ipcRenderer.removeListener('window:meta', handler)
+    }
+  },
+  app: {
+    version: () => ipcRenderer.invoke('app:version') as Promise<string>
   },
   tabs: {
     create: (url?: string) => ipcRenderer.invoke('tabs:create', url),
@@ -70,6 +105,9 @@ const api = {
     forward: () => ipcRenderer.invoke('tabs:forward'),
     reload: () => ipcRenderer.invoke('tabs:reload'),
     stop: () => ipcRenderer.invoke('tabs:stop'),
+    list: () => ipcRenderer.invoke('tabs:list') as Promise<TabInfo[]>,
+    createGroup: (name?: string) => ipcRenderer.invoke('tabs:create-group', name) as Promise<TabGroup>,
+    groups: () => ipcRenderer.invoke('tabs:groups') as Promise<TabGroup[]>,
     onUpdated: (cb: (tabs: TabInfo[], activeId: string | null) => void) => {
       const handler = (_: unknown, tabs: TabInfo[], activeId: string | null) => cb(tabs, activeId)
       ipcRenderer.on('tabs:updated', handler)
@@ -128,7 +166,32 @@ const api = {
     set: (settings: Record<string, string | boolean>) => ipcRenderer.invoke('settings:set', settings)
   },
   page: {
-    getContent: () => ipcRenderer.invoke('page:get-content')
+    getContent: () => ipcRenderer.invoke('page:get-content'),
+    save: () => ipcRenderer.invoke('page:save') as Promise<boolean>,
+    copyLink: () => ipcRenderer.invoke('page:copy-link') as Promise<string | null>,
+    qr: () => ipcRenderer.invoke('page:qr') as Promise<string | null>,
+    home: () => ipcRenderer.invoke('page:home'),
+    readingMode: () => ipcRenderer.invoke('page:reading-mode') as Promise<boolean>,
+    devtools: () => ipcRenderer.invoke('page:devtools'),
+    clipboard: (action: 'cut' | 'copy' | 'paste') => ipcRenderer.invoke('page:clipboard', action),
+    clearData: (opts: object) => ipcRenderer.invoke('page:clear-data', opts),
+    taskManager: () => ipcRenderer.invoke('page:task-manager') as Promise<TaskInfo[]>,
+    nameWindow: (name: string) => ipcRenderer.invoke('page:name-window', name)
+  },
+  extensions: {
+    list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,
+    setEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('extensions:set-enabled', id, enabled),
+    path: () => ipcRenderer.invoke('extensions:path') as Promise<string>
+  },
+  passwords: {
+    get: () => ipcRenderer.invoke('passwords:get'),
+    add: (entry: { site: string; username: string; password: string; notes: string }) =>
+      ipcRenderer.invoke('passwords:add', entry),
+    remove: (id: string) => ipcRenderer.invoke('passwords:remove', id),
+    removePayment: (id: string) => ipcRenderer.invoke('passwords:remove-payment', id),
+    removeContact: (id: string) => ipcRenderer.invoke('passwords:remove-contact', id),
+    removeIdentity: (id: string) => ipcRenderer.invoke('passwords:remove-identity', id),
+    removeTravel: (id: string) => ipcRenderer.invoke('passwords:remove-travel', id)
   },
   grok: {
     chat: (messages: { role: string; content: string }[], options?: object) =>
@@ -136,6 +199,7 @@ const api = {
     summarizePage: () => ipcRenderer.invoke('grok:summarize-page'),
     askPage: (query: string) => ipcRenderer.invoke('grok:ask-page', query),
     research: (topic: string) => ipcRenderer.invoke('grok:research', topic),
+    translatePage: () => ipcRenderer.invoke('grok:translate-page'),
     onStreamStart: (cb: (channel: string) => void) => {
       const handler = (_: unknown, channel: string) => cb(channel)
       ipcRenderer.on('grok:stream-start', handler)
