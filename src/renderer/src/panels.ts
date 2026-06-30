@@ -2,29 +2,34 @@ import type { Bookmark, DownloadEntry, HistoryEntry } from '../../preload/index'
 
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)!
 
-function formatTime(ts: number): string {
-  const d = new Date(ts)
-  const now = new Date()
-  if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+let overlayDepth = 0
+
+function syncOverlay(): void {
+  window.grokBrowser.chrome.setOverlayOpen(overlayDepth > 0)
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+export function pushOverlay(): void {
+  overlayDepth++
+  syncOverlay()
+}
+
+export function popOverlay(): void {
+  overlayDepth = Math.max(0, overlayDepth - 1)
+  syncOverlay()
 }
 
 export function openModal(id: string): void {
   const modal = document.getElementById(id)
-  if (modal) modal.hidden = false
+  if (!modal || !modal.hidden) return
+  modal.hidden = false
+  pushOverlay()
 }
 
 export function closeModal(id: string): void {
   const modal = document.getElementById(id)
-  if (modal) modal.hidden = true
+  if (!modal || modal.hidden) return
+  modal.hidden = true
+  popOverlay()
 }
 
 export function setupPanelModals(): void {
@@ -37,7 +42,7 @@ export function setupPanelModals(): void {
 
   document.querySelectorAll('.panel-modal').forEach((overlay) => {
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.hidden = true
+      if (e.target === overlay) closeModal(overlay.id)
     })
   })
 }
@@ -156,6 +161,21 @@ export function updateDownloadsBadge(count: number): void {
   } else {
     badge.hidden = true
   }
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function escapeHtml(text: string): string {

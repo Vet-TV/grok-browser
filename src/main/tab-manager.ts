@@ -44,6 +44,8 @@ export class TabManager {
   private sidebarWidth = settingsStore.get('sidebarWidth')
   private sidebarOpen = settingsStore.get('sidebarOpen')
   private tabsReady = false
+  private overlayOpen = false
+  private contentAttached = false
 
   constructor(window: BrowserWindow) {
     this.window = window
@@ -61,17 +63,43 @@ export class TabManager {
 
   markTabsReady(): void {
     this.tabsReady = true
-    if (this.activeTabId) {
-      const tab = this.tabs.get(this.activeTabId)
-      if (tab) {
-        try {
-          this.window.contentView.addChildView(tab.view)
-        } catch {
-          // view may already be attached
-        }
-      }
+    this.attachActiveView()
+  }
+
+  setOverlayOpen(open: boolean): void {
+    this.overlayOpen = open
+    if (open) {
+      this.detachActiveView()
+    } else {
+      this.attachActiveView()
     }
-    this.layoutViews()
+  }
+
+  private attachActiveView(): void {
+    if (!this.tabsReady || this.overlayOpen || !this.activeTabId) return
+    const tab = this.tabs.get(this.activeTabId)
+    if (!tab) return
+    try {
+      this.window.contentView.addChildView(tab.view)
+      this.contentAttached = true
+      this.layoutViews()
+    } catch {
+      // view may already be attached
+      this.contentAttached = true
+      this.layoutViews()
+    }
+  }
+
+  private detachActiveView(): void {
+    if (!this.activeTabId || !this.contentAttached) return
+    const tab = this.tabs.get(this.activeTabId)
+    if (!tab) return
+    try {
+      this.window.contentView.removeChildView(tab.view)
+    } catch {
+      // ignore
+    }
+    this.contentAttached = false
   }
 
   createTab(url?: string): string {
@@ -118,6 +146,7 @@ export class TabManager {
     }
     this.tabs.clear()
     this.activeTabId = null
+    this.contentAttached = false
 
     urls.forEach((url, i) => {
       const tabId = this.createTab(url)
@@ -223,13 +252,10 @@ export class TabManager {
         }
       }
     }
+    this.contentAttached = false
 
     this.activeTabId = id
-    const tab = this.tabs.get(id)!
-    if (this.tabsReady) {
-      this.window.contentView.addChildView(tab.view)
-      this.layoutViews()
-    }
+    this.attachActiveView()
     this.emitActiveTabUpdate()
     this.emitTabsUpdate()
   }
@@ -243,6 +269,7 @@ export class TabManager {
     } catch {
       // ignore
     }
+    if (this.activeTabId === id) this.contentAttached = false
     tab.view.webContents.close()
     this.tabs.delete(id)
 
@@ -359,7 +386,7 @@ export class TabManager {
   }
 
   layoutViews(): void {
-    if (!this.tabsReady) return
+    if (!this.tabsReady || this.overlayOpen || !this.contentAttached) return
 
     const [width, height] = this.window.getContentSize()
     const sidebarOffset = this.sidebarOpen ? this.sidebarWidth : 0

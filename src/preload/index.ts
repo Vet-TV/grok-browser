@@ -152,7 +152,8 @@ const api = {
   },
   chrome: {
     reportLayout: (layout: { chromeHeight: number; sidebarWidth: number }) =>
-      ipcRenderer.invoke('chrome:report-layout', layout)
+      ipcRenderer.invoke('chrome:report-layout', layout),
+    setOverlayOpen: (open: boolean) => ipcRenderer.invoke('chrome:set-overlay-open', open)
   },
   auth: {
     status: () => ipcRenderer.invoke('auth:status') as Promise<XAccountInfo>,

@@ -102,6 +102,11 @@ function setupIpc(): void {
     return true
   })
 
+  ipcMain.handle('chrome:set-overlay-open', (_, open: boolean) => {
+    tabManager?.setOverlayOpen(open)
+    return true
+  })
+
   ipcMain.handle('auth:status', () => getXAccountStatus())
   ipcMain.handle('auth:sign-in', () => openXSignIn(mainWindow))
   ipcMain.handle('auth:sign-out', () => {

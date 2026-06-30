@@ -3,6 +3,8 @@ import type { GrokStreamChunk, TabInfo, XAccountInfo } from '../../preload/index
 import {
   closeModal,
   openModal,
+  popOverlay,
+  pushOverlay,
   renderBookmarks,
   renderDownloads,
   renderHistory,
@@ -153,12 +155,14 @@ function setupFindBar(): void {
 }
 
 function showFindBar(): void {
+  if (findBar.hidden) pushOverlay()
   findBar.hidden = false
   findInput.value = ''
   findInput.focus()
 }
 
 function hideFindBar(): void {
+  if (!findBar.hidden) popOverlay()
   findBar.hidden = true
   window.grokBrowser.find.stop()
 }
@@ -478,18 +482,18 @@ function showToast(message: string, type: 'error' | 'success' = 'error'): void {
 
 function setupSettings(): void {
   $('#btn-settings').onclick = () => {
-    settingsModal.hidden = false
+    openModal('settings-modal')
     loadSettings()
     refreshAccountUI()
   }
-  $('#btn-settings-close').onclick = () => { settingsModal.hidden = true }
+  $('#btn-settings-close').onclick = () => closeModal('settings-modal')
   $('#btn-save-settings').onclick = saveSettings
   $('#link-console').onclick = (e) => {
     e.preventDefault()
     window.grokBrowser.shell.openExternal('https://console.x.ai')
   }
   settingsModal.onclick = (e) => {
-    if (e.target === settingsModal) settingsModal.hidden = true
+    if (e.target === settingsModal) closeModal('settings-modal')
   }
 }
 
@@ -505,10 +509,10 @@ function setupAuth(): void {
 async function checkOnboarding(): Promise<void> {
   const status = await window.grokBrowser.auth.status()
   if (!status.onboardingComplete || !status.linked || !status.hasApiKey) {
-    onboardingModal.hidden = false
+    openModal('onboarding-modal')
     updateOnboardingUI(status)
   } else {
-    onboardingModal.hidden = true
+    closeModal('onboarding-modal')
   }
 }
 
@@ -592,7 +596,7 @@ async function handleSignOut(): Promise<void> {
   const status = await window.grokBrowser.auth.signOut()
   refreshAccountUI()
   updateOnboardingUI(status)
-  onboardingModal.hidden = false
+  openModal('onboarding-modal')
   showToast('Signed out of X account')
 }
 
@@ -634,7 +638,7 @@ async function completeOnboarding(): Promise<void> {
   }
 
   await window.grokBrowser.auth.completeOnboarding()
-  onboardingModal.hidden = true
+  closeModal('onboarding-modal')
   showToast('Welcome to Grok Browser!', 'success')
 }
 
@@ -660,7 +664,7 @@ async function saveSettings(): Promise<void> {
     homePage: ($('#setting-home-page') as HTMLInputElement).value,
     restoreSession: ($('#setting-restore-session') as HTMLInputElement).checked
   })
-  settingsModal.hidden = true
+  closeModal('settings-modal')
   const status = await window.grokBrowser.auth.status()
   if (status.linked && (status.hasApiKey || ($('#setting-api-key') as HTMLInputElement).value)) {
     await window.grokBrowser.auth.completeOnboarding()
