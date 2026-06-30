@@ -17,8 +17,5 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Enable npm install scripts
-        run: npm config set allow-scripts true
-
       - run: npm ci
       - run: npm run build

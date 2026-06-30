@@ -21,11 +21,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Enable npm install scripts
-        run: npm config set allow-scripts true
-
       - name: Install dependencies
         run: npm ci
+        env:
+          npm_config_ignore_scripts: "false"
 
       - name: Verify package version matches tag
         shell: pwsh
