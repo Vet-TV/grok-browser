@@ -51,6 +51,24 @@ npm run dist:mac     # macOS DMG
 npm run dist:linux   # Linux AppImage/deb
 ```
 
+### Releasing (automated)
+
+Pushing a version tag triggers [GitHub Actions](https://github.com/Vet-TV/grok-browser/actions) to build Windows installers and upload them to [Releases](https://github.com/Vet-TV/grok-browser/releases).
+
+```bash
+# 1. Bump version in package.json (e.g. 0.3.0)
+# 2. Commit and push to main
+git add package.json
+git commit -m "Bump version to 0.3.0"
+git push origin main
+
+# 3. Tag and push — CI builds & publishes installers automatically
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+The tag **must** match `package.json` version (`v0.3.0` → `"version": "0.3.0"`).
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |

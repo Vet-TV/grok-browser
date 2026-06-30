@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Enable npm install scripts
+        run: npm config set allow-scripts true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package version matches tag
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($tag -ne $version) {
+            Write-Error "Tag v$tag does not match package.json version $version. Bump package.json before tagging."
+            exit 1
+          }
+
+      - name: Build Windows installers
+        run: npm run dist:win
+
+      - name: Collect release assets
+        id: assets
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter "Grok Browser Setup *.exe" | Select-Object -First 1
+          $portable = Get-ChildItem release -Filter "Grok Browser *.exe" | Where-Object { $_.Name -notlike "*Setup*" } | Select-Object -First 1
+          if (-not $installer -or -not $portable) {
+            Write-Error "Missing installer artifacts in release/"
+            Get-ChildItem release | Format-Table Name, Length
+            exit 1
+          }
+          Write-Host "Installer: $($installer.Name) ($([math]::Round($installer.Length/1MB, 1)) MB)"
+          Write-Host "Portable:  $($portable.Name) ($([math]::Round($portable.Length/1MB, 1)) MB)"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "files<<EOF"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value $installer.FullName
+          Add-Content -Path $env:GITHUB_OUTPUT -Value $portable.FullName
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "EOF"
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: ${{ steps.assets.outputs.files }}
