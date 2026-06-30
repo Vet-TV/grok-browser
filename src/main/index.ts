@@ -111,7 +111,8 @@ function setupIpc(): void {
     sidebarOpen: settingsStore.get('sidebarOpen'),
     xAccountLinked: settingsStore.get('xAccountLinked'),
     xUsername: settingsStore.get('xUsername'),
-    onboardingComplete: settingsStore.get('onboardingComplete')
+    onboardingComplete: settingsStore.get('onboardingComplete'),
+    showBookmarksBar: settingsStore.get('showBookmarksBar')
   }))
 
   ipcMain.handle('settings:set', (_, settings: Record<string, string | boolean>) => {
@@ -120,6 +121,7 @@ function setupIpc(): void {
     if (settings.searchMode) settingsStore.set('searchMode', settings.searchMode as 'auto' | 'on' | 'off')
     if (settings.homePage) settingsStore.set('homePage', settings.homePage as string)
     if (typeof settings.restoreSession === 'boolean') settingsStore.set('restoreSession', settings.restoreSession)
+    if (typeof settings.showBookmarksBar === 'boolean') settingsStore.set('showBookmarksBar', settings.showBookmarksBar)
     return true
   })
 

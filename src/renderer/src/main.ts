@@ -6,6 +6,8 @@ import {
   openModal,
   popOverlay,
   pushOverlay,
+  renderBookmarksBar,
+  setBookmarksBarVisible,
   setupPanelModals,
   updateDownloadsBadge
 } from './panels'
@@ -49,7 +51,7 @@ function init(): void {
   setupPanelModals()
   setupMenu({
     showFindBar,
-    openSettings: () => { openModal('settings-modal'); loadSettings(); refreshAccountUI() },
+    openSettings: () => { void openModal('settings-modal').then(() => { loadSettings(); refreshAccountUI() }) },
     handleSignIn: () => handleSignIn('onboarding'),
     handleSignOut: () => handleSignOut(),
     toggleSidebar: () => {
@@ -112,6 +114,7 @@ function setupGrokStreamBridge(): void {
 function setupChromeLayout(): void {
   reportChromeLayout()
   window.addEventListener('resize', reportChromeLayout)
+  document.addEventListener('chrome-layout-changed', reportChromeLayout)
   if (typeof ResizeObserver !== 'undefined') {
     const observer = new ResizeObserver(() => reportChromeLayout())
     observer.observe(chromeShell)
@@ -145,6 +148,7 @@ function setupNavigation(): void {
     const bookmarked = await window.grokBrowser.bookmarks.toggle()
     $('#btn-bookmark').classList.toggle('active', bookmarked)
     $('#btn-bookmark').textContent = bookmarked ? '★' : '☆'
+    void renderBookmarksBar()
   }
 
   omnibox.addEventListener('keydown', (e) => {
@@ -175,15 +179,15 @@ function setupFindBar(): void {
   })
 }
 
-function showFindBar(): void {
-  if (findBar.hidden) pushOverlay()
+async function showFindBar(): Promise<void> {
+  if (findBar.hidden) await pushOverlay()
   findBar.hidden = false
   findInput.value = ''
   findInput.focus()
 }
 
-function hideFindBar(): void {
-  if (!findBar.hidden) popOverlay()
+async function hideFindBar(): Promise<void> {
+  if (!findBar.hidden) await popOverlay()
   findBar.hidden = true
   window.grokBrowser.find.stop()
 }
@@ -506,19 +510,14 @@ function showToast(message: string, type: 'error' | 'success' = 'error'): void {
 }
 
 function setupSettings(): void {
-  $('#btn-settings').onclick = () => {
-    openModal('settings-modal')
-    loadSettings()
-    refreshAccountUI()
-  }
-  $('#btn-settings-close').onclick = () => closeModal('settings-modal')
+  $('#btn-settings-close').onclick = () => { void closeModal('settings-modal') }
   $('#btn-save-settings').onclick = saveSettings
   $('#link-console').onclick = (e) => {
     e.preventDefault()
     window.grokBrowser.shell.openExternal('https://console.x.ai')
   }
   settingsModal.onclick = (e) => {
-    if (e.target === settingsModal) closeModal('settings-modal')
+    if (e.target === settingsModal) void closeModal('settings-modal')
   }
 }
 
@@ -534,10 +533,9 @@ function setupAuth(): void {
 async function checkOnboarding(): Promise<void> {
   const status = await window.grokBrowser.auth.status()
   if (!status.onboardingComplete || !status.linked || !status.hasApiKey) {
-    openModal('onboarding-modal')
-    updateOnboardingUI(status)
+    void openModal('onboarding-modal').then(() => updateOnboardingUI(status))
   } else {
-    closeModal('onboarding-modal')
+    void closeModal('onboarding-modal')
   }
 }
 
@@ -624,7 +622,7 @@ async function handleSignOut(): Promise<void> {
   const status = await window.grokBrowser.auth.signOut()
   refreshAccountUI()
   updateOnboardingUI(status)
-  openModal('onboarding-modal')
+  void openModal('onboarding-modal')
   showToast('Signed out of X account')
 }
 
@@ -669,7 +667,7 @@ async function completeOnboarding(): Promise<void> {
   }
 
   await window.grokBrowser.auth.completeOnboarding()
-  closeModal('onboarding-modal')
+  await closeModal('onboarding-modal')
   showToast('Welcome to Grok Browser!', 'success')
 }
 
@@ -679,12 +677,14 @@ async function loadSettings(): Promise<void> {
   ;($('#setting-search-mode') as HTMLSelectElement).value = s.searchMode
   ;($('#setting-home-page') as HTMLInputElement).value = s.homePage
   ;($('#setting-restore-session') as HTMLInputElement).checked = s.restoreSession
+  ;($('#setting-bookmarks-bar') as HTMLInputElement).checked = !!s.showBookmarksBar
   if (s.hasApiKey) {
     ($('#setting-api-key') as HTMLInputElement).placeholder = '••••••••  (saved — enter new key to replace)'
   }
   sidebarOpen = s.sidebarOpen
   sidebarWidth = s.sidebarWidth
   updateSidebarUI()
+  await setBookmarksBarVisible(!!s.showBookmarksBar)
 }
 
 async function saveSettings(): Promise<void> {
@@ -693,9 +693,11 @@ async function saveSettings(): Promise<void> {
     model: ($('#setting-model') as HTMLSelectElement).value,
     searchMode: ($('#setting-search-mode') as HTMLSelectElement).value,
     homePage: ($('#setting-home-page') as HTMLInputElement).value,
-    restoreSession: ($('#setting-restore-session') as HTMLInputElement).checked
+    restoreSession: ($('#setting-restore-session') as HTMLInputElement).checked,
+    showBookmarksBar: ($('#setting-bookmarks-bar') as HTMLInputElement).checked
   })
-  closeModal('settings-modal')
+  await setBookmarksBarVisible(($('#setting-bookmarks-bar') as HTMLInputElement).checked)
+  await closeModal('settings-modal')
   const status = await window.grokBrowser.auth.status()
   if (status.linked && (status.hasApiKey || ($('#setting-api-key') as HTMLInputElement).value)) {
     await window.grokBrowser.auth.completeOnboarding()
@@ -735,7 +737,7 @@ function setupKeyboardShortcuts(): void {
     }
     if (e.ctrlKey && e.shiftKey && e.key === 'Delete') {
       e.preventDefault()
-      openModal('clear-data-modal')
+      void openModal('clear-data-modal')
     }
     if (e.ctrlKey && e.key === 't') {
       e.preventDefault()

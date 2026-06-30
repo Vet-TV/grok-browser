@@ -45,6 +45,7 @@ export const APP_MENU: MenuSection[] = [
     items: [
       { id: 'history', label: 'History', shortcut: 'Ctrl+H', action: 'history' },
       { id: 'bookmarks', label: 'Bookmarks and lists', shortcut: 'Ctrl+Shift+B', action: 'bookmarks' },
+      { id: 'bookmarks-bar', label: 'Show bookmarks bar', action: 'toggle-bookmarks-bar' },
       { id: 'tab-groups', label: 'Tab groups', action: 'tab-groups' },
       { id: 'create-group', label: 'Create new tab group', shortcut: 'Alt+Shift+P', action: 'create-tab-group' },
       { id: 'downloads', label: 'Downloads', shortcut: 'Ctrl+J', action: 'downloads' }

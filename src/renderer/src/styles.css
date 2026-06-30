@@ -1162,12 +1162,21 @@ body:has(.grok-sidebar.closed) .find-bar {
   border-radius: 50%; font-size: 12px; font-weight: 700;
 }
 
-.toolbar-dropdown-wrap { position: relative; }
+.toolbar-dropdown-wrap { position: static; }
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  background: transparent;
+  pointer-events: auto;
+}
+
 .toolbar-dropdown {
   display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
+  right: 8px;
+  top: calc(var(--chrome-height, 112px) + 4px);
   min-width: 220px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -1177,8 +1186,60 @@ body:has(.grok-sidebar.closed) .find-bar {
   pointer-events: auto;
 }
 .toolbar-dropdown.open { display: block; }
-.app-menu-dropdown { width: 340px; max-height: 70vh; }
-.app-menu-body { overflow-y: auto; max-height: 68vh; padding: 8px 0; }
+#extensions-dropdown { right: 120px; min-width: 240px; }
+#profile-dropdown { right: 64px; min-width: 220px; }
+.app-menu-dropdown { width: 340px; max-height: calc(100vh - var(--chrome-height, 112px) - 24px); right: 8px; }
+.app-menu-body { overflow-y: auto; max-height: calc(100vh - var(--chrome-height, 112px) - 40px); padding: 8px 0; }
+
+.bookmarks-bar {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+.bookmarks-bar[hidden] { display: none; }
+.bookmarks-bar-items {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none;
+}
+.bookmarks-bar-items::-webkit-scrollbar { display: none; }
+.bookmark-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: none;
+  background: var(--bg-elevated);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 180px;
+}
+.bookmark-bar-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bookmark-bar-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.bookmarks-bar-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 0 8px;
+}
 
 .dropdown-body { padding: 4px 0; }
 .menu-section { padding: 4px 0; }

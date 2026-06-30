@@ -4,32 +4,63 @@ const $ = <T extends HTMLElement>(sel: string) => document.querySelector<T>(sel)
 
 let overlayDepth = 0
 
-function syncOverlay(): void {
-  window.grokBrowser.chrome.setOverlayOpen(overlayDepth > 0)
+async function syncOverlay(): Promise<void> {
+  await window.grokBrowser.chrome.setOverlayOpen(overlayDepth > 0)
 }
 
-export function pushOverlay(): void {
+export async function pushOverlay(): Promise<void> {
   overlayDepth++
-  syncOverlay()
+  await syncOverlay()
 }
 
-export function popOverlay(): void {
+export async function popOverlay(): Promise<void> {
   overlayDepth = Math.max(0, overlayDepth - 1)
-  syncOverlay()
+  await syncOverlay()
 }
 
-export function openModal(id: string): void {
+export async function openModal(id: string): Promise<void> {
   const modal = document.getElementById(id)
   if (!modal || !modal.hidden) return
+  await pushOverlay()
   modal.hidden = false
-  pushOverlay()
 }
 
-export function closeModal(id: string): void {
+export async function closeModal(id: string): Promise<void> {
   const modal = document.getElementById(id)
   if (!modal || modal.hidden) return
   modal.hidden = true
-  popOverlay()
+  await popOverlay()
+}
+
+export async function renderBookmarksBar(): Promise<void> {
+  const bar = document.getElementById('bookmarks-bar-items')
+  if (!bar) return
+  const bookmarks = await window.grokBrowser.bookmarks.list()
+  if (!bookmarks.length) {
+    bar.innerHTML = '<span class="bookmarks-bar-empty">Bookmark pages with Ctrl+D — they appear here</span>'
+    return
+  }
+  bar.innerHTML = bookmarks.slice(0, 30).map((b) => `
+    <button class="bookmark-bar-item" data-url="${escapeAttr(b.url)}" title="${escapeAttr(b.title)}">
+      ${b.favicon ? `<img src="${escapeAttr(b.favicon)}" alt="" width="14" height="14"/>` : '⭐'}
+      <span>${escapeHtml(b.title || b.url)}</span>
+    </button>
+  `).join('')
+  bar.querySelectorAll('.bookmark-bar-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const url = (btn as HTMLElement).dataset.url
+      if (url) window.grokBrowser.tabs.navigate(url)
+    })
+  })
+}
+
+export async function setBookmarksBarVisible(visible: boolean): Promise<void> {
+  const el = document.getElementById('bookmarks-bar')
+  if (!el) return
+  el.hidden = !visible
+  await window.grokBrowser.settings.set({ showBookmarksBar: visible })
+  if (visible) await renderBookmarksBar()
+  document.dispatchEvent(new CustomEvent('chrome-layout-changed'))
 }
 
 export function setupPanelModals(): void {

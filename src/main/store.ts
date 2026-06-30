@@ -13,6 +13,7 @@ export interface BrowserSettings {
   xEmail: string
   xLinkedAt: number | null
   onboardingComplete: boolean
+  showBookmarksBar: boolean
 }
 
 const defaults: BrowserSettings = {
@@ -27,7 +28,8 @@ const defaults: BrowserSettings = {
   xUsername: '',
   xEmail: '',
   xLinkedAt: null,
-  onboardingComplete: false
+  onboardingComplete: false,
+  showBookmarksBar: false
 }
 
 export const settingsStore = new Store<BrowserSettings>({
